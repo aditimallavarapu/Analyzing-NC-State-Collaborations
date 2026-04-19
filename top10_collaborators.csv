@@ -1,0 +1,101 @@
+college_group,rank,uid,name,shib_title,is_asst_prof,total_pubs,first_year,last_year,n_collaborators,department
+College of Agriculture and Life Sciences,1,skim22,Sung Woo Kim,WNR Distinguished Professor / Univ Faculty Scholar,False,408,2006,2025,16,Animal Science
+College of Agriculture and Life Sciences,2,mdrake,MaryAnne Drake,WNR Professor,False,264,2006,2025,9,"Food, Bioprocessing, and Nutrition Sciences"
+College of Agriculture and Life Sciences,3,gvalacc,Giuseppe Valacchi,Professor,False,246,2007,2025,4,Kannapolis Research
+College of Agriculture and Life Sciences,4,rbarran,Rodolphe Barrangou,Professor,False,237,2006,2025,14,"Food, Bioprocessing, and Nutrition Sciences"
+College of Agriculture and Life Sciences,5,wfhunt,William Hunt,Professor,False,234,2006,2025,7,Biological and Agricultural Engineering
+College of Agriculture and Life Sciences,6,coby,Coby Schal,Professor,False,229,2006,2025,20,Entomology and Plant Pathology
+College of Agriculture and Life Sciences,7,cmaltec,Christian Maltecca,Professor,False,214,2006,2025,14,Animal Science
+College of Agriculture and Life Sciences,8,mlila,Mary Lila,Professor,False,202,2006,2025,13,Kannapolis Research
+College of Agriculture and Life Sciences,9,ddreisig,Dominic Reisig,Professor,False,186,2006,2025,15,Entomology and Plant Pathology
+College of Agriculture and Life Sciences,10,shu4,Shuijin Hu,Unpaid Emeritus,False,183,2006,2025,10,Entomology and Plant Pathology
+College of Design,1,scho3,Soolyeon Cho,"Assoc/Asst Dean, Architecture",True,33,2012,2023,4,College of Design Administration
+College of Design,2,smbennet,Sharon Joines,"Assoc/Asst Dean, Architecture",True,23,2006,2025,2,College of Design Administration
+College of Design,3,tmrider,Traci Rider,Assoc Professor,False,21,2014,2025,3,Architecture
+College of Design,4,mopeters,Matthew Peterson,Assoc Professor,False,21,2007,2025,2,Graphic Design & Industrial Design
+College of Design,5,ngcosco,Nilda Cosco,Research Professor,False,20,2007,2025,4,College of Design Administration
+College of Design,6,kamyers2,Kelly Umstead,Assoc Professor,False,16,2007,2024,2,Graphic Design & Industrial Design
+College of Design,7,bkim18,Byungsoo Kim,Asst Professor,True,9,2018,2023,3,Graphic Design & Industrial Design
+College of Design,8,sewill32,Bess Williamson,Assoc Professor,False,7,2018,2025,0,"Media Arts, Design and Technology"
+College of Design,9,ytian29,Yuanqing (Ching) Tian,Asst Professor,True,6,2020,2025,0,Graphic Design & Industrial Design
+College of Design,10,aafox,Andrew Fox,Professor,False,6,2015,2022,5,Landscape Architecture and Environmental Planning
+College of Education,1,cjohns26,Carla Johnson,Professor,False,138,2006,2025,0,"Science, Technology, Engineering, & Mathematics Education"
+College of Education,2,fmartin3,Florence Martin,Professor,False,135,2006,2025,3,Teacher Education and Learning Sciences
+College of Education,3,mgjones3,Gail Jones,Professor,False,85,2006,2025,15,"Science, Technology, Engineering, & Mathematics Education"
+College of Education,4,anbryan2,Alyssa Rockenbach,Professor,False,59,2007,2025,3,"Educational Leadership, Policy, and Human Development"
+College of Education,5,cdhoggan,Chad Hoggan,Professor,False,55,2014,2025,1,"Educational Leadership, Policy, and Human Development"
+College of Education,6,dmkearns,Devin Kearns,Professor,False,55,2010,2024,0,Teacher Education and Learning Sciences
+College of Education,7,spark26,Soonhye Park,Professor,False,54,2006,2025,3,"Science, Technology, Engineering, & Mathematics Education"
+College of Education,8,jhunt5,Jessica Hunt,"Professor, Mathematics Education & Special Education",False,52,2012,2025,0,Teacher Education and Learning Sciences
+College of Education,9,sjcarrie,Sarah Carrier,Head,False,44,2007,2025,15,Teacher Education and Learning Sciences
+College of Education,10,hstohl,Hollylynne Lee,Professor,False,43,2006,2025,2,"Science, Technology, Engineering, & Mathematics Education"
+College of Engineering,1,sbhatta4,Subhashish Bhattacharya,Professor,False,632,2006,2025,7,Electrical and Computer Engineering
+College of Engineering,2,xjiang5,Xiaoning Jiang,Professor,False,372,2006,2025,26,Mechanical and Aerospace Engineering
+College of Engineering,3,mddickey,Michael Dickey,Professor,False,319,2006,2025,39,Chemical and Biomolecular Engineering
+College of Engineering,4,jljone21,Jacob Jones,Kobe Steel Distinguished Professor,False,315,2006,2025,28,Materials Science and Engineering
+College of Engineering,5,rjnaraya,Roger Narayan,Distinguished Professor,False,288,2006,2025,8,Biomedical Engineering
+College of Engineering,6,avkuznet,Andrey Kuznetsov,Professor,False,283,2006,2025,6,Mechanical and Aerospace Engineering
+College of Engineering,7,narayan,Jagdish Narayan,Professor,False,257,2006,2025,7,Materials Science and Engineering
+College of Engineering,8,gnp,Gregory Parsons,Professor,False,241,2006,2025,28,Chemical and Biomolecular Engineering
+College of Engineering,9,jgenzer,Jan Genzer,Professor,False,233,2006,2025,40,Chemical and Biomolecular Engineering
+College of Engineering,10,mpsingh,Munindar Singh,Professor,False,230,2006,2025,17,Computer Science
+College of Humanities and Social Sciences,1,ksmulvey,Kelly Lynn Mulvey,Professor,False,138,2010,2025,2,Psychology
+College of Humanities and Social Sciences,2,acmclaug,Anne McLaughlin,Unclassified,False,107,2006,2025,10,Psychology
+College of Humanities and Social Sciences,3,sdneuper,Shevaun Neupert,Professor,False,105,2006,2025,9,Psychology
+College of Humanities and Social Sciences,4,vdublje,Veljko Dubljevic,"University Faculty Scholar, Joseph D. Moore Distinguished Professor of Philosophy and Science, Technology & Society (STS)",False,103,2012,2025,10,Philosophy and Religious Studies
+College of Humanities and Social Sciences,5,lmwidman,Laura Widman,Unpaid Faculty All Ranks,False,102,2006,2025,3,Psychology
+College of Humanities and Social Sciences,6,jlburne5,Jennifer Burnette,Professor,False,88,2006,2025,4,Psychology
+College of Humanities and Social Sciences,7,jkuzma,Jennifer Kuzma,Professor,False,85,2006,2025,7,Political Science & Public Administration [in the School of Public and International Affairs]
+College of Humanities and Social Sciences,8,mfbykova,Marina Bykova,Professor,False,76,2008,2025,0,Philosophy and Religious Studies
+College of Humanities and Social Sciences,9,ycheng20,Alice Cheng,Assoc Professor,False,74,2013,2025,8,Communication
+College of Humanities and Social Sciences,10,arellis,Alan Ellis,Head,False,72,2006,2025,0,Social Work
+College of Natural Resources,1,lalucia,Lucian Lucia,Professor,False,313,2006,2025,22,Forest Biomaterials
+College of Natural Resources,2,rwkays,Roland Kays,Unpaid Faculty All Ranks,False,225,2006,2025,10,Forestry and Environmental Resources
+College of Natural Resources,3,richardv,Richard Venditti,Professor,False,200,2006,2025,29,Forest Biomaterials
+College of Natural Resources,4,moorman,Christopher Moorman,Professor,False,177,2006,2025,25,Forestry and Environmental Resources
+College of Natural Resources,5,jahipp,Aaron Hipp,Professor,False,148,2006,2025,15,"Parks, Recreation and Tourism Management"
+College of Natural Resources,6,lrlarson,Lincoln Larson,Assoc Professor,False,144,2009,2025,25,"Parks, Recreation and Tourism Management"
+College of Natural Resources,7,spark,Sunkyu Park,Jordan Family Distinguished Professor & University Faculty Scholar,False,139,2006,2025,15,Forest Biomaterials
+College of Natural Resources,8,csdepern,Christopher DePerno,"Professor, FWCB Coordinator",False,135,2008,2024,17,Forestry and Environmental Resources
+College of Natural Resources,9,hubbe,Martin Hubbe,Professor,False,133,2006,2025,12,Forest Biomaterials
+College of Natural Resources,10,mnpeters,Nils Peterson,Professor,False,128,2007,2025,27,Forestry and Environmental Resources
+College of Sciences,1,hwade,Harald Ade,Professor,False,385,2006,2025,15,Physics
+College of Sciences,2,dcmuddim,David Muddiman,Professor,False,307,2006,2025,42,Chemistry
+College of Sciences,3,jslindse,Jonathan Lindsey,Professor,False,263,2006,2025,3,Chemistry
+College of Sciences,4,fncastel,Felix Castellano,Goodnight Innovation Distinguished Chair and Professor,False,241,2006,2025,10,Chemistry
+College of Sciences,5,vskokov,Vladimir Skokov,Assoc Professor,False,222,2006,2025,1,Physics
+College of Sciences,6,jahoppin,Jane Hoppin,Professor,False,205,2006,2025,11,Biological Sciences
+College of Sciences,7,jing,Naihuan Jing,Professor,False,203,2006,2025,1,Mathematics
+College of Sciences,8,bjreich,Brian Reich,Professor,False,198,2006,2025,36,Statistics
+College of Sciences,9,choyo,Cathrine Hoyo,Professor,False,153,2007,2025,14,Biological Sciences
+College of Sciences,10,rchiech,Ryan Chiechi,Assoc Professor,False,132,2006,2025,4,Chemistry
+College of Veterinary Medicine,1,ebbreits,Edward Breitschwerdt,Professor,False,318,2006,2025,23,Clinical Sciences
+College of Veterinary Medicine,2,mgpapich,Mark Papich,Professor,False,247,2006,2025,38,Molecular Biomedical Sciences
+College of Veterinary Medicine,3,dxlascel,Benedict Lascelles,Professor,False,226,2006,2025,40,Clinical Sciences
+College of Veterinary Medicine,4,atbliksl,Anthony Blikslager,Associate Dean and Director of Veterinary Medical Services,False,205,2006,2025,30,College of Veterinary Medicine Administration
+College of Veterinary Medicine,5,gmachad,Gustavo Machado,Assoc Professor,False,193,2008,2025,10,Population Health and Pathobiology
+College of Veterinary Medicine,6,njolby,Natasha Olby,Professor,False,179,2006,2025,37,Clinical Sciences
+College of Veterinary Medicine,7,bgilger,Brian Gilger,Professor,False,162,2006,2025,17,Clinical Sciences
+College of Veterinary Medicine,8,galewbar,Gregory Lewbart,Professor,False,160,2006,2025,29,Clinical Sciences
+College of Veterinary Medicine,9,rgmaggi,Ricardo Maggi,Research Professor,False,149,2006,2025,15,Clinical Sciences
+College of Veterinary Medicine,10,jastern,Joshua Stern,"Assoc/Asst Dean, Vet Medicine",True,148,2007,2025,8,College of Veterinary Medicine Administration
+Poole College of Management,1,rbhandfi,Robert Handfield,Professor,False,102,2006,2025,8,"Information Technology, Analytics, & Operations"
+Poole College of Management,2,jmpolla3,Jeffrey Pollack,Professor,False,91,2007,2025,6,"Management, Innovation and Entrepreneurship"
+Poole College of Management,3,rclark,Robert Clark,Professor,False,85,2006,2025,6,Economics
+Poole College of Management,4,blkirkma,Bradley Kirkman,Professor,False,76,2006,2025,3,"Management, Innovation and Entrepreneurship"
+Poole College of Management,5,tzagenc,Tom Zagenczyk,Professor,False,65,2006,2025,1,"Management, Innovation and Entrepreneurship"
+Poole College of Management,6,hsheese,H  Sebastian Heese,Professor,False,49,2006,2025,4,"Information Technology, Analytics, & Operations"
+Poole College of Management,7,wmrand,Bill Rand,Professor,False,49,2006,2025,3,Marketing
+Poole College of Management,8,msmorril,Melinda Morrill,Professor,False,37,2010,2025,5,Economics
+Poole College of Management,9,udur,Umut Dur,Professor,False,33,2016,2025,3,Economics
+Poole College of Management,10,jsstoneb,Jeffrey Stonebraker,Assoc Professor,False,32,2007,2024,2,"Information Technology, Analytics, & Operations"
+Wilson College of Textiles,1,amelsha,Ahmed El-Shafei,Professor,False,134,2006,2025,7,"Textile Engineering, Chemistry and Science"
+Wilson College of Textiles,2,bejin,Byoungho Jin,Professor,False,111,2006,2025,2,"Textile and Apparel, Technology and Management"
+Wilson College of Textiles,3,pdbradfo,Philip Bradford,Professor,False,81,2008,2024,15,"Textile Engineering, Chemistry and Science"
+Wilson College of Textiles,4,mwking2,Martin King,Professor,False,72,2006,2025,12,"Textile Engineering, Chemistry and Science"
+Wilson College of Textiles,5,eadenhar,Emiel Den Hartog,"Professor, Department Head TECS",False,71,2006,2025,12,"Textile Engineering, Chemistry and Science"
+Wilson College of Textiles,6,aseyam,Abdel-Fattah Seyam,Professor,False,63,2006,2025,12,"Textile and Apparel, Technology and Management"
+Wilson College of Textiles,7,wgao5,Wei Gao,"Associate Professor, University Faculty Scholar",False,63,2006,2024,14,"Textile Engineering, Chemistry and Science"
+Wilson College of Textiles,8,rshamey,Renzo Shamey,CIBA Distinguished Professor,False,60,2006,2025,7,"Textile Engineering, Chemistry and Science"
+Wilson College of Textiles,9,yzhan296,Yang Zhang,Asst Professor,True,54,2011,2025,6,"Textile Engineering, Chemistry and Science"
+Wilson College of Textiles,10,nrvinuez,Nelson Vinueza Benitez,Professor,False,54,2007,2025,7,"Textile Engineering, Chemistry and Science"
