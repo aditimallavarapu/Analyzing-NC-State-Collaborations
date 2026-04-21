@@ -384,6 +384,17 @@ function applyF(){
   const hi=q&&(mIds.has(si)||mIds.has(ti));
   d3.select(this).style("display",v?null:"none").classed("hi",v&&hi).classed("dim",v&&q&&!hi);
  });
+ if(q&&mIds.size>0){
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  d3.selectAll(".nd").each(function(d){if(mIds.has(d.id)&&d.x!=null&&d.y!=null){minX=Math.min(minX,d.x);minY=Math.min(minY,d.y);maxX=Math.max(maxX,d.x);maxY=Math.max(maxY,d.y);}});
+  if(minX<Infinity){
+   const W=document.getElementById("cvs").clientWidth,H=document.getElementById("cvs").clientHeight;
+   const cx=(minX+maxX)/2,cy=(minY+maxY)/2,w=maxX-minX,h=maxY-minY;
+   const scale=Math.min(W/(w+80),H/(h+80),5);
+   const x=W/2-scale*cx,y=H/2-scale*cy;
+   svgN.transition().duration(400).call(d3.zoom().transform,d3.zoomIdentity.translate(x,y).scale(scale));
+  }
+ }
 }
 function onSrch(){sq=document.getElementById("srch").value;applyF();}
 function clrSrch(){sq="";document.getElementById("srch").value="";applyF();}
