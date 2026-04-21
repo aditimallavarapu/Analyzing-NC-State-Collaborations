@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NC State Research Networks</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f0ede6; --surf: #fff; --surf2: #f7f4ef;
+  --bord: rgba(0,0,0,.10); --text: #1a1a2e; --mut: #7a7a8c;
+  --acc: #0072B2; --cross: #c0392b; --crossl: rgba(192,57,43,.5);
+  --F: Segoe UI, system-ui, sans-serif;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--F); overflow: hidden; }
+#app { display: flex; flex-direction: column; height: 100vh; }
+#hdr { flex-shrink: 0; padding: 9px 18px; background: var(--surf); border-bottom: 2px solid var(--bord);
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+#hdr h1 { font-size: 16px; font-weight: 700; }
+#hdr h1 span { color: var(--acc); }
+.tbar { display: flex; gap: 2px; background: var(--bg); padding: 2px; border-radius: 10px; border: 1px solid var(--bord); }
+.tbtn { font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 8px; border: none;
+  background: transparent; color: var(--mut); cursor: pointer; }
+.tbtn.on { background: var(--surf); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.spl { font-size: 11px; padding: 3px 9px; border-radius: 100px; background: rgba(0,0,0,.05);
+  border: 1px solid var(--bord); color: var(--mut); white-space: nowrap; }
+.spl b { color: var(--text); }
+.cbar { flex-shrink: 0; padding: 7px 14px; background: var(--surf2); border-bottom: 1px solid var(--bord);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+select, input[type=text] { font-family: var(--F); font-size: 12px; background: var(--surf);
+  border: 1px solid var(--bord); color: var(--text); border-radius: 7px; padding: 4px 9px; outline: none; }
+select:focus, input:focus { border-color: var(--acc); }
+.btn { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 100px;
+  border: 1.5px solid var(--bord); background: var(--surf); color: var(--mut); cursor: pointer; }
+.btn:hover { border-color: var(--acc); color: var(--acc); }
+.btn.on { background: var(--acc); border-color: var(--acc); color: #fff; }
+.sw { position: relative; }
+.sw input { width: 165px; padding: 4px 24px 4px 9px; }
+.sw button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--mut); cursor: pointer; font-size: 13px; }
+.tp { display: none; flex: 1; overflow: hidden; }
+.tp.on { display: flex; }
+#net-p { flex-direction: column; }
+#nbody { flex: 1; display: flex; overflow: hidden; }
+#cvs { flex: 1; position: relative; background: var(--bg); overflow: hidden; }
+#cvs svg { width: 100%; height: 100%; }
+.edge { stroke-width: 1; }
+.same { stroke: rgba(0,0,0,.13); }
+.ecross { stroke: rgba(192,57,43,.5); stroke-width: 1.8; }
+.edge.hi { stroke-width: 3; opacity: 1 !important; }
+.hi.same { stroke: var(--acc); }
+.hi.ecross { stroke: var(--cross); }
+.edge.dim { opacity: .04 !important; }
+.nd circle, .nd polygon { stroke: rgba(255,255,255,.65); stroke-width: 1.3; cursor: pointer; }
+.nd.dim circle, .nd.dim polygon { opacity: .06 !important; }
+.nd.hlt circle, .nd.hlt polygon { stroke: #fff; stroke-width: 2.5; }
+#rp { flex-shrink: 0; width: 235px; background: var(--surf); border-left: 1px solid var(--bord);
+  display: flex; flex-direction: column; overflow: hidden; }
+#leg { padding: 10px 10px 4px; overflow-y: auto; flex-shrink: 0; max-height: 42%; }
+#leg h3, #lb h3 { font-size: 10px; font-weight: 700; color: var(--mut);
+  text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+.lr { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 5px; cursor: pointer; }
+.lr:hover { background: rgba(0,0,0,.04); }
+.lr.sel { background: rgba(0,114,178,.09); }
+.ld { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.ll { font-size: 10px; color: var(--mut); flex: 1; line-height: 1.3; }
+.lc { font-size: 10px; color: var(--text); font-weight: 700; }
+.lr.off .ll { text-decoration: line-through; opacity: .4; }
+.ldiv { height: 1px; background: var(--bord); margin: 5px 0; }
+.hint { font-size: 9px; color: var(--mut); line-height: 1.7; padding: 2px 6px 4px; }
+#lb { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 5px 10px 4px; min-height: 0; }
+#lb-list { overflow-y: auto; flex: 1; }
+.lbi { display: flex; align-items: center; gap: 4px; padding: 3px 2px; border-radius: 4px; font-size: 10px; cursor: pointer; }
+.lbi:hover { background: rgba(0,0,0,.04); }
+.lbr { color: var(--mut); width: 16px; flex-shrink: 0; font-weight: 700; }
+.lbn { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbv { color: var(--mut); flex-shrink: 0; font-weight: 700; }
+.ba { font-size: 8px; border-radius: 3px; padding: 1px 3px; flex-shrink: 0; }
+.ba-a { background: #FFF3CD; color: #856404; }
+.ba-c { background: #FFE4E1; color: #c0392b; }
+#dlb { margin: 4px 10px 8px; font-size: 10px; font-weight: 600; padding: 6px 0;
+  border-radius: 7px; border: 1.5px solid var(--acc); background: transparent;
+  color: var(--acc); cursor: pointer; text-align: center; flex-shrink: 0; }
+#dlb:hover { background: var(--acc); color: #fff; }
+#ybg { position: absolute; bottom: 12px; left: 14px; font-size: 56px; font-weight: 700;
+  color: rgba(0,0,0,.04); pointer-events: none; user-select: none; }
+#tt { position: fixed; display: none; z-index: 300; background: var(--surf);
+  border: 1px solid var(--bord); border-radius: 10px; padding: 10px 13px;
+  max-width: 260px; pointer-events: none; box-shadow: 0 6px 24px rgba(0,0,0,.13); }
+.ttn { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.ttc { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.ttd { font-size: 10px; color: var(--mut); margin-bottom: 5px; }
+.ttr { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; margin-bottom: 2px; }
+.ttr span:first-child { color: var(--mut); }
+.ttr span:last-child { font-weight: 700; }
+.ttpp { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--bord); }
+.ttph { font-size: 9px; color: var(--mut); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+.ttp { font-size: 10px; color: var(--mut); border-left: 2px solid var(--bord); padding-left: 5px; margin-bottom: 2px; }
+.bdg { font-size: 9px; border-radius: 3px; padding: 1px 4px; display: inline-block; margin: 2px 2px 0 0; }
+.bdg-a { background: #FFF3CD; color: #856404; }
+.bdg-c { background: #FFE4E1; color: #c0392b; }
+.bdg-x { background: #FDECEA; color: #c0392b; }
+#cfep-p { flex-direction: column; background: var(--bg); overflow: hidden; }
+.ctop { flex-shrink: 0; padding: 9px 18px 7px; background: var(--surf);
+  border-bottom: 1px solid var(--bord); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ctop h2 { font-size: 15px; font-weight: 700; }
+.cbody { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto;
+  gap: 8px; padding: 8px; min-height: 0; overflow: hidden; }
+.yc { background: var(--surf); border-radius: 10px; border: 1px solid var(--bord);
+  display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.ych { padding: 7px 12px; background: var(--surf2); border-bottom: 1px solid var(--bord);
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ych h3 { font-size: 13px; font-weight: 700; }
+.ycst { font-size: 11px; color: var(--mut); flex: 1; }
+.ycb { flex: 1; position: relative; min-height: 0; }
+.ycb svg { width: 100%; height: 100%; display: block; }
+.chartc { background: var(--surf); border-radius: 10px; border: 1px solid var(--bord);
+  grid-column: 1 / -1; display: flex; flex-direction: column; overflow: hidden; max-height: 210px; }
+.chartc-h { font-size: 11px; font-weight: 700; padding: 7px 14px; flex-shrink: 0;
+  border-bottom: 1px solid var(--bord); background: var(--surf2); }
+.chnote { font-size: 10px; color: var(--mut); padding: 4px 14px 2px; flex-shrink: 0; line-height: 1.5; }
+.chwrap { flex: 1; overflow-x: auto; overflow-y: hidden; padding: 4px 14px 8px; min-height: 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <h1>NC State <span>Research</span> Networks</h1>
+    <div class="tbar">
+      <button class="tbtn on" id="tbnet"  onclick="switchTab('net')">🔗 Collaboration Network</button>
+      <button class="tbtn"    id="tbcfep" onclick="switchTab('cfep')">🔬 CFEP Cluster Impact</button>
+    </div>
+  </div>
+  <div class="tp on" id="net-p">
+    <div class="cbar">
+      <label style="font-size:11px;color:var(--mut);font-weight:600">Year:</label>
+      <select id="yr-sel" onchange="switchYear(+this.value)"></select>
+      <div class="sw">
+        <input id="srch" type="text" placeholder="Search name or dept…" oninput="onSrch()">
+        <button onclick="clrSrch()">&#x2715;</button>
+      </div>
+      <button class="btn" id="bcfep" onclick="togCFEP()">&#9670; CFEP only</button>
+      <div class="spl" id="sn"><b>-</b> faculty</div>
+      <div class="spl" id="se"><b>-</b> collabs</div>
+      <div class="spl" id="sc"><b>-</b> <span style="color:var(--cross)">cross-college</span></div>
+      <div class="spl" id="sp"><b>-</b> papers</div>
+    </div>
+    <div id="nbody">
+      <div id="cvs"><svg id="svg"></svg><div id="ybg">2006</div></div>
+      <div id="rp">
+        <div id="leg">
+          <h3>Colleges <span style="font-weight:400;color:#ccc;font-size:8px">click=filter dbl=hide</span></h3>
+          <div id="ll"></div>
+          <div class="ldiv"></div>
+          <div class="hint">&#9670; Diamond = CFEP member<br>Red edge = cross-college<br>&#9733; Asst Prof | Size = pubs/yr</div>
+        </div>
+        <div class="ldiv" style="margin:0"></div>
+        <div id="lb">
+          <h3 id="lbt">Top 10 all colleges</h3>
+          <div id="lb-list"></div>
+        </div>
+        <button id="dlb" onclick="dlCSV()">&#8595; Download Network CSV</button>
+      </div>
+    </div>
+  </div>
+  <div class="tp" id="cfep-p">
+    <div class="ctop">
+      <h2>CFEP Cluster Impact</h2>
+      <button class="btn on" id="ball" onclick="setCM('all')">All Faculty</button>
+      <button class="btn"    id="bmem" onclick="setCM('cfep')">CFEP Only</button>
+      <span style="font-size:10px;color:var(--mut)" id="cnote">All faculty shown, CFEP as diamonds</span>
+    </div>
+    <div class="cbody">
+      <div class="yc">
+        <div class="ych">
+          <h3>Year:</h3><select id="yl-sel" onchange="renderYC('l')"></select>
+          <span class="ycst" id="ysl"></span>
+        </div>
+        <div class="ycb" id="ycbl"><svg id="svgl"></svg></div>
+      </div>
+      <div class="yc">
+        <div class="ych">
+          <h3>Year:</h3><select id="yr-sel2" onchange="renderYC('r')"></select>
+          <span class="ycst" id="ysr"></span>
+        </div>
+        <div class="ycb" id="ycbr"><svg id="svgr"></svg></div>
+      </div>
+      <div class="chartc">
+        <div class="chartc-h">CFEP Member Publications per Year  bars=total pubs | pink line=active members</div>
+        <div class="chnote">Hover bar to highlight those CFEP members in both panes. 2006 members were already at NC State before the CFEP program.</div>
+        <div class="chwrap"><svg id="svgt"></svg></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="tt"></div>
+<script>
+const GRAPHS = __GRAPHS__;
+const LB     = __LB__;
+const CFEP   = __CFEP__;
+const CCOL={
+ "College of Engineering":"#0072B2","College of Sciences":"#009E73",
+ "College of Agriculture and Life Sciences":"#E69F00",
+ "College of Humanities and Social Sciences":"#CC79A7",
+ "College of Veterinary Medicine":"#56B4E9","College of Education":"#D55E00",
+ "Poole College of Management":"#F0E442","College of Natural Resources":"#9B59B6",
+ "Wilson College of Textiles":"#1ABC9C","College of Design":"#E74C3C"
+};
+const CSH={
+ "College of Engineering":"Engineering","College of Sciences":"Sciences",
+ "College of Agriculture and Life Sciences":"Agric & Life Sci",
+ "College of Humanities and Social Sciences":"Humanities & Social Sci",
+ "College of Veterinary Medicine":"Veterinary Medicine","College of Education":"Education",
+ "Poole College of Management":"Management","College of Natural Resources":"Natural Resources",
+ "Wilson College of Textiles":"Textiles","College of Design":"Design"
+};
+let CY=2006,simN=null,hidC=new Set(),sq="",cfOnly=false,selC=null;
+let nmap={},svgN=null,gE=null,gN=null,cfepMode="all";
+const tt=document.getElementById("tt");
+["yr-sel","yl-sel","yr-sel2"].forEach(id=>{
+ const s=document.getElementById(id);
+ for(let y=2006;y<=2025;y++){const o=document.createElement("option");o.value=y;o.textContent=y;s.appendChild(o);}
+});
+document.getElementById("yr-sel").value=2006;
+document.getElementById("yl-sel").value=2006;
+document.getElementById("yr-sel2").value=2025;
+function switchTab(t){
+ document.querySelectorAll(".tp").forEach(p=>p.classList.remove("on"));
+ document.getElementById(t+"-p").classList.add("on");
+ document.querySelectorAll(".tbtn").forEach(b=>b.classList.remove("on"));
+ document.getElementById("tb"+t).classList.add("on");
+ if(t==="cfep")renderCFEP();
+}
+function initSVG(){
+ document.getElementById("svg").innerHTML="";
+ svgN=d3.select("#svg");
+ const gR=svgN.append("g").attr("id","gR");
+ gE=gR.append("g");gN=gR.append("g");
+ const zoom=d3.zoom().scaleExtent([0.03,14]).on("zoom",e=>{
+  gR.attr("transform",e.transform);
+  if(e.transform.k<0.22)clrHov();
+ });
+ svgN.call(zoom).on("dblclick.zoom",null);
+}
+function buildLeg(rn){
+ const cnt={};rn.forEach(n=>{cnt[n.col]=(cnt[n.col]||0)+1;});
+ const el=document.getElementById("ll");el.innerHTML="";
+ Object.entries(cnt).sort((a,b)=>b[1]-a[1]).forEach(([col,c])=>{
+  const color=CCOL[col]||"#888";
+  const r=document.createElement("div");
+  r.className="lr"+(hidC.has(col)?" off":"")+(col===selC?" sel":"");
+  r.innerHTML='<div class="ld" style="background:'+color+'"></div><span class="ll">'+(CSH[col]||col)+'</span><span class="lc">'+c+"</span>";
+  r.addEventListener("click",()=>{selC=selC===col?null:col;buildLeg(rn);applyF();buildLB(rn);});
+  r.addEventListener("dblclick",e=>{e.stopPropagation();hidC.has(col)?hidC.delete(col):hidC.add(col);buildLeg(rn);applyF();buildLB(rn);});
+  el.appendChild(r);
+ });
+}
+function buildLB(rn){
+ const title=document.getElementById("lbt"),list=document.getElementById("lb-list");
+ const lbY=LB[String(CY)];if(!lbY){list.innerHTML="";return;}
+ let items;
+ if(selC&&lbY[selC]){title.textContent="Top 10 - "+(CSH[selC]||selC);items=lbY[selC];}
+ else{title.textContent="Top 10 all colleges";
+  const seen=new Set(),all=[];
+  Object.values(lbY).forEach(arr=>arr.forEach(x=>{if(!seen.has(x.uid)){seen.add(x.uid);all.push(x);}}));
+  items=all.sort((a,b)=>b.pub_year-a.pub_year).slice(0,10);
+ }
+ list.innerHTML="";
+ items.forEach((item,i)=>{
+  const div=document.createElement("div");div.className="lbi";
+  div.innerHTML='<span class="lbr">'+(i+1)+'</span><span class="lbn" title="'+item.name+'">'+item.name+'</span><span class="lbv">'+item.pub_year+"</span>"+(item.is_asst?'<span class="ba ba-a">&#9733;</span>':"")+(item.is_cfep?'<span class="ba ba-c">&#9670;</span>':"");
+  div.addEventListener("mouseover",()=>{const n=nmap[item.uid];if(n)hilNode(n.id);});
+  div.addEventListener("mouseout",()=>{if(!document.querySelector(".lbi:hover"))clrHov();});
+  list.appendChild(div);
+ });
+}
+function render(yr){
+ if(simN)simN.stop();
+ initSVG();
+ document.getElementById("ybg").textContent=yr;
+ const raw=GRAPHS[yr];if(!raw){console.error("No data for year",yr);return;}
+ let nodes=raw.n.filter(n=>!hidC.has(n.col));
+ if(cfOnly)nodes=nodes.filter(n=>n.cf);
+ const aids=new Set(nodes.map(n=>n.id));
+ const edges=raw.e.filter(e=>aids.has(e.s)&&aids.has(e.t));
+ buildLeg(raw.n);buildLB(raw.n);
+ nmap={};nodes.forEach(n=>{nmap[n.id]=n;});
+ const xc=edges.filter(e=>e.xc).length;
+ document.getElementById("sn").innerHTML="<b>"+nodes.length+"</b> faculty";
+ document.getElementById("se").innerHTML="<b>"+edges.length+"</b> collabs";
+ document.getElementById("sc").innerHTML='<b>'+xc+'</b> <span style="color:var(--cross)">cross-college</span>';
+ document.getElementById("sp").innerHTML="<b>"+(raw.tp||0).toLocaleString()+"</b> papers";
+ const W=document.getElementById("cvs").clientWidth,H=document.getElementById("cvs").clientHeight;
+ const pv=nodes.map(n=>n.py);
+ const rSc=d3.scaleSqrt().domain([Math.max(1,d3.min(pv)||1),Math.max(2,d3.max(pv)||2)]).range([4,22]);
+ const wSc=d3.scaleLinear().domain([1,Math.max(2,d3.max(edges.map(e=>e.w))||2)]).range([1,5]);
+ const cols=[...new Set(nodes.map(n=>n.col))];
+ const cp={};
+ cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.27;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
+ const NC=nodes.map(n=>({...n,r:rSc(n.py||1)}));
+ const EC=edges.map(e=>({...e}));
+ simN=d3.forceSimulation(NC)
+  .force("link",d3.forceLink(EC).id(d=>d.id).distance(38).strength(0.2))
+  .force("charge",d3.forceManyBody().strength(-65))
+  .force("x",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.3))
+  .force("y",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.3))
+  .force("col",d3.forceCollide(d=>d.r+2)).alphaDecay(0.025).on("tick",tick);
+ const eSel=gE.selectAll(".edge").data(EC,d=>d.s+"-"+d.t)
+  .join(en=>en.append("line").attr("class",d=>"edge "+(d.xc?"ecross":"same"))
+   .attr("stroke-width",d=>wSc(d.w)).on("mouseover",eHov).on("mouseout",()=>setTimeout(maybeClr,100)));
+ const nSel=gN.selectAll(".nd").data(NC,d=>d.id)
+  .join(en=>{
+   const g=en.append("g").attr("class","nd")
+    .call(d3.drag().on("start",ds).on("drag",dd).on("end",de))
+    .on("mouseover",nHov).on("mouseout",()=>setTimeout(maybeClr,100));
+   g.each(function(d){
+    const el=d3.select(this);
+    if(d.cf)el.append("polygon").attr("fill",d.clr).attr("points","0,"+(-d.r*1.4)+" "+(d.r*1.1)+",0 0,"+(d.r*1.4)+" "+(-d.r*1.1)+",0");
+    else el.append("circle").attr("r",d.r).attr("fill",d.clr);
+   });
+   return g;
+  });
+ function tick(){
+  eSel.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
+  nSel.attr("transform",d=>"translate("+(d.x||0)+","+(d.y||0)+")");
+ }
+ applyF();
+}
+function ds(e,d){if(!e.active)simN.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;}
+function dd(e,d){d.fx=e.x;d.fy=e.y;}
+function de(e,d){if(!e.active)simN.alphaTarget(0);d.fx=null;d.fy=null;}
+function hilNode(uid){
+ const nb=new Set([uid]);
+ d3.selectAll(".edge").each(function(e){
+  const si=e.source.id||e.source,ti=e.target.id||e.target;
+  if(si===uid||ti===uid){nb.add(si);nb.add(ti);}
+ });
+ d3.selectAll(".nd").classed("dim",n=>!nb.has(n.id));
+ d3.selectAll(".edge").classed("hi",e=>(e.source.id||e.source)===uid||(e.target.id||e.target)===uid)
+  .classed("dim",e=>(e.source.id||e.source)!==uid&&(e.target.id||e.target)!==uid);
+}
+function nHov(ev,d){
+ hilNode(d.id);
+ showTT('<div class="ttn">'+d.nm+'</div><div class="ttc" style="color:'+d.clr+'">'+(CSH[d.col]||d.col)+"</div>"+(d.dept?'<div class="ttd">'+d.dept+"</div>":"")+
+  '<div class="ttr"><span>Pubs ('+CY+")</span><span>"+d.py+"</span></div>"+'<div class="ttr"><span>Total pubs</span><span>'+d.pt+"</span></div>"+
+  (d.ttl?'<div class="ttr"><span>Title</span><span>'+d.ttl+"</span></div>":"")+
+  (d.ia?'<span class="bdg bdg-a">&#9733; Asst Prof</span>':"")+(d.cf?'<span class="bdg bdg-c">&#9670; CFEP: '+d.cc+"</span>":""),ev);
+}
+function eHov(ev,d){
+ const si=d.source.id||d.s,ti=d.target.id||d.t;
+ const sn=nmap[si],tn=nmap[ti];
+ const pp=(d.p||[]).map(x=>'<div class="ttp">'+x+"</div>").join("");
+ showTT('<div class="ttn">'+(sn?sn.nm:si)+" × "+(tn?tn.nm:ti)+"</div>"+(d.xc?'<span class="bdg bdg-x">Cross-college</span>':"")+
+  '<div class="ttr" style="margin-top:5px"><span>Shared papers</span><span>'+d.w+"</span></div>"+(pp?'<div class="ttpp"><div class="ttph">Papers</div>'+pp+"</div>":""),ev);
+}
+function maybeClr(){
+ if(!document.querySelector(".nd:hover")&&!document.querySelector(".edge:hover")&&!document.querySelector(".lbi:hover"))clrHov();
+}
+function clrHov(){
+ d3.selectAll(".nd").classed("dim",false).classed("hlt",false);
+ d3.selectAll(".edge").classed("dim",false).classed("hi",false);
+ hideTT();
+}
+function showTT(h,e){
+ tt.innerHTML=h;tt.style.display="block";
+ const px=14,W=tt.offsetWidth,H=tt.offsetHeight;
+ let x=e.clientX+px,y=e.clientY+px;
+ if(x+W>window.innerWidth-px)x=e.clientX-W-px;
+ if(y+H>window.innerHeight-px)y=e.clientY-H-px;
+ tt.style.left=x+"px";tt.style.top=y+"px";
+}
+function hideTT(){tt.style.display="none";}
+function applyF(){
+ const q=sq.toLowerCase().trim();const mIds=new Set();
+ if(q)d3.selectAll(".nd").each(function(d){if((d.nm||"").toLowerCase().includes(q)||(d.dept||"").toLowerCase().includes(q))mIds.add(d.id);});
+ d3.selectAll(".nd").each(function(d){
+  const h=hidC.has(d.col);
+  d3.select(this).style("display",h?"none":null).classed("dim",!h&&q&&!mIds.has(d.id)).classed("hlt",!h&&q&&mIds.has(d.id));
+ });
+ d3.selectAll(".edge").each(function(d){
+  const si=d.source.id||d.s,ti=d.target.id||d.t;
+  const sc=(nmap[si]||{}).col||"",tc=(nmap[ti]||{}).col||"";
+  const v=!hidC.has(sc)&&!hidC.has(tc);
+  const hi=q&&(mIds.has(si)||mIds.has(ti));
+  d3.select(this).style("display",v?null:"none").classed("hi",v&&hi).classed("dim",v&&q&&!hi);
+ });
+}
+function onSrch(){sq=document.getElementById("srch").value;applyF();}
+function clrSrch(){sq="";document.getElementById("srch").value="";applyF();}
+function togCFEP(){cfOnly=!cfOnly;document.getElementById("bcfep").classList.toggle("on",cfOnly);render(CY);}
+function switchYear(y){CY=y;hidC.clear();selC=null;sq="";document.getElementById("srch").value="";render(y);}
+function dlCSV(){
+ const raw=GRAPHS[CY];const ni={};raw.n.forEach(n=>{ni[n.id]=n;});
+ const rows=["source_uid,source_name,source_college,target_uid,target_name,target_college,weight,cross_college,src_cfep,tgt_cfep"];
+ raw.e.forEach(e=>{const s=ni[e.s]||{},t=ni[e.t]||{};
+  rows.push([e.s,s.nm||"",s.col||"",e.t,t.nm||"",t.col||"",e.w,e.xc,!!s.cf,!!t.cf].map(v=>"\""+String(v).replace(/"/g,"\"\"")+"\",").join("").slice(0,-1));
+ });
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([rows.join("\n")],{type:"text/csv"}));
+ a.download="ncstate_network_"+CY+".csv";a.click();
+}
+function setCM(m){
+ cfepMode=m;
+ document.getElementById("ball").classList.toggle("on",m==="all");
+ document.getElementById("bmem").classList.toggle("on",m==="cfep");
+ document.getElementById("cnote").textContent=m==="cfep"?"CFEP members only":"All faculty shown, CFEP as diamonds";
+ renderCFEP();
+}
+function renderCFEP(){renderYC("l");renderYC("r");renderTrend();}
+function renderYC(side){
+ const selId=side==="l"?"yl-sel":"yr-sel2";
+ const svgId="svg"+side,bodyId="ycb"+side,statId="ys"+side;
+ const yr=+document.getElementById(selId).value;
+ document.getElementById(svgId).innerHTML="";
+ const raw=GRAPHS[yr];if(!raw)return;
+ const cfepNodes=raw.n.filter(n=>n.cf);
+ document.getElementById(statId).textContent=cfepNodes.length+" CFEP members";
+ if(cfepNodes.length===0){
+  d3.select("#"+svgId).append("text").attr("x","50%").attr("y","50%")
+   .attr("text-anchor","middle").attr("dominant-baseline","central")
+   .attr("fill","#aaa").attr("font-size",13).text("No CFEP members in "+yr);
+  return;
+ }
+ let nodes=cfepMode==="cfep"?cfepNodes:raw.n;
+ const aids=new Set(nodes.map(n=>n.id));
+ const edges=raw.e.filter(e=>aids.has(e.s)&&aids.has(e.t));
+ const cfepIds=new Set(cfepNodes.map(n=>n.id));
+ const box=document.getElementById(bodyId).getBoundingClientRect();
+ const W=Math.max(box.width,200)||400,H=Math.max(box.height,150)||250;
+ const svgEl=d3.select("#"+svgId),g=svgEl.append("g");
+ svgEl.call(d3.zoom().scaleExtent([0.06,10]).on("zoom",e=>g.attr("transform",e.transform)));
+ const pv=nodes.map(n=>n.py).filter(v=>v>0);
+ const rSc=d3.scaleSqrt().domain([Math.max(1,d3.min(pv)||1),Math.max(2,d3.max(pv)||2)]).range([3,15]);
+ const cols=[...new Set(nodes.map(n=>n.col))];const cp={};
+ cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.3;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
+ const NC=nodes.map(n=>({...n,r:rSc(Math.max(n.py,1))}));const EC=edges.map(e=>({...e}));
+ const sim=d3.forceSimulation(NC)
+  .force("link",d3.forceLink(EC).id(d=>d.id).distance(30).strength(0.2))
+  .force("charge",d3.forceManyBody().strength(-50))
+  .force("x",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.28))
+  .force("y",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.28))
+  .force("col",d3.forceCollide(d=>d.r+2)).alphaDecay(0.03);
+ const eSel=g.append("g").selectAll("line").data(EC).join("line")
+  .attr("stroke",d=>d.xc?"rgba(192,57,43,.4)":"rgba(0,0,0,.09)").attr("stroke-width",d=>d.xc?1.5:1);
+ const dom=document.getElementById(svgId);
+ const nSel=g.append("g").selectAll("g").data(NC).join("g").style("cursor","pointer")
+  .on("mouseover",function(ev,d){
+   highlightBoth(d.id);
+   showTT('<div class="ttn">'+d.nm+'</div><div class="ttc" style="color:'+d.clr+'">'+(CSH[d.col]||d.col)+"</div>"+'<div class="ttr"><span>Pubs ('+yr+")</span><span>"+d.py+"</span></div>"+'<div class="ttr"><span>Total pubs</span><span>'+d.pt+"</span></div>"+(d.cf?'<span class="bdg bdg-c">&#9670; '+d.cc+"</span>":""),ev);
+  }).on("mouseout",()=>{clearBoth();hideTT();});
+ nSel.each(function(d){
+  const el=d3.select(this);
+  if(d.cf)el.append("polygon").attr("fill",d.clr).attr("stroke","rgba(255,255,255,.7)").attr("stroke-width",1.5)
+   .attr("points","0,"+(-d.r*1.4)+" "+(d.r*1.1)+",0 0,"+(d.r*1.4)+" "+(-d.r*1.1)+",0");
+  else el.append("circle").attr("r",d.r).attr("fill",d.clr)
+   .attr("stroke","rgba(255,255,255,.5)").attr("stroke-width",1).attr("opacity",cfepIds.has(d.id)?1:0.35);
+ });
+ dom._nSel=nSel;dom._eSel=eSel;
+ sim.on("tick",()=>{
+  eSel.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
+  nSel.attr("transform",d=>"translate("+(d.x||0)+","+(d.y||0)+")");
+ });
+}
+function highlightBoth(uid){
+ ["svgl","svgr"].forEach(id=>{
+  const el=document.getElementById(id);if(!el._nSel)return;
+  el._nSel.style("opacity",d=>d.id===uid?1:0.08);
+  el._eSel.style("opacity",d=>{const si=d.source.id||d.s,ti=d.target.id||d.t;return(si===uid||ti===uid)?0.8:0.03;});
+ });
+}
+function clearBoth(){
+ ["svgl","svgr"].forEach(id=>{const el=document.getElementById(id);if(!el._nSel)return;el._nSel.style("opacity",null);el._eSel.style("opacity",null);});
+}
+function renderTrend(){
+ const el=document.getElementById("svgt");el.innerHTML="";
+ if(!CFEP||!CFEP.members||!CFEP.members.length)return;
+ const YEARS=d3.range(2006,2026);
+ const bY=YEARS.map(yr=>({year:yr,
+  total:CFEP.members.reduce((s,m)=>s+(m.pubs_by_year[yr]||0),0),
+  active:CFEP.members.filter(m=>(m.pubs_by_year[yr]||0)>0).length,
+  uids:CFEP.members.filter(m=>(m.pubs_by_year[yr]||0)>0).map(m=>m.uid)
+ }));
+ const PW=el.parentElement.clientWidth||720,W=Math.max(PW,700),H=140;
+ const mg={t:15,r:90,b:30,l:38},iW=W-mg.l-mg.r,iH=H-mg.t-mg.b;
+ const xSc=d3.scaleBand().domain(YEARS).range([0,iW]).padding(0.22);
+ const ySc=d3.scaleLinear().domain([0,d3.max(bY,d=>d.total)*1.12]).range([iH,0]);
+ const y2=d3.scaleLinear().domain([0,d3.max(bY,d=>d.active)*1.2]).range([iH,0]);
+ const svg=d3.select(el).attr("width",W).attr("height",H).append("g").attr("transform","translate("+mg.l+","+mg.t+")");
+ svg.append("g").call(d3.axisLeft(ySc).ticks(4).tickSize(-iW).tickFormat("")).selectAll("line").attr("stroke","rgba(0,0,0,.06)");
+ svg.select(".domain").remove();
+ svg.selectAll(".bar").data(bY).join("rect").attr("class","bar")
+  .attr("x",d=>xSc(d.year)).attr("y",d=>ySc(d.total)).attr("width",xSc.bandwidth()).attr("height",d=>iH-ySc(d.total))
+  .attr("fill","#0072B2").attr("opacity",0.72).attr("rx",2).style("cursor","pointer")
+  .on("mouseover",function(ev,d){
+   d3.select(this).attr("fill","#E69F00").attr("opacity",1);
+   const uids=new Set(d.uids);
+   ["svgl","svgr"].forEach(id=>{const el2=document.getElementById(id);if(!el2._nSel)return;
+    el2._nSel.style("opacity",nd=>uids.has(nd.id)?1:0.07);el2._eSel.style("opacity",0.03);});
+   showTT("<b>"+d.year+"</b>: "+d.total+" total pubs, "+d.active+" active CFEP members",ev);
+  }).on("mouseout",function(){d3.select(this).attr("fill","#0072B2").attr("opacity",0.72);clearBoth();hideTT();});
+ const line=d3.line().x(d=>xSc(d.year)+xSc.bandwidth()/2).y(d=>y2(d.active));
+ svg.append("path").datum(bY).attr("fill","none").attr("stroke","#CC79A7").attr("stroke-width",2).attr("d",line);
+ svg.selectAll(".dot").data(bY).join("circle").attr("cx",d=>xSc(d.year)+xSc.bandwidth()/2).attr("cy",d=>y2(d.active)).attr("r",3).attr("fill","#CC79A7");
+ svg.append("g").attr("transform","translate(0,"+iH+")").call(d3.axisBottom(xSc).tickFormat(d=>[2006,2010,2015,2020,2025].includes(d)?d:"")).selectAll("text").attr("font-size",9);
+ svg.append("g").call(d3.axisLeft(ySc).ticks(4)).selectAll("text").attr("font-size",9);
+ svg.append("g").attr("transform","translate("+iW+",0)").call(d3.axisRight(y2).ticks(4)).selectAll("text").attr("font-size",9).attr("fill","#CC79A7");
+ svg.append("rect").attr("x",iW-58).attr("y",1).attr("width",10).attr("height",10).attr("fill","#0072B2").attr("opacity",0.72);
+ svg.append("text").attr("x",iW-44).attr("y",9).attr("font-size",8).attr("fill","#555").text("Total pubs/yr");
+ svg.append("circle").attr("cx",iW-53).attr("cy",23).attr("r",4).attr("fill","#CC79A7");
+ svg.append("text").attr("x",iW-44).attr("y",27).attr("font-size",8).attr("fill","#CC79A7").text("Active members");
+}
+window.addEventListener("resize",()=>{if(document.getElementById("net-p").classList.contains("on"))render(CY);});
+render(2006);
+</script>
+</body>
+</html>
