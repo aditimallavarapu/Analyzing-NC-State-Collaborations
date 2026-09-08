@@ -199,13 +199,16 @@ def write_college_collab_matrices(matrices: dict[str, pd.DataFrame], path: Path)
 
 def department_pair_counts_by_block(long_df: pd.DataFrame) -> pd.DataFrame:
     """Return department-level collaboration counts per block as rows:
-    block, dept_x, dept_y, colab_type (intra/inter), n_publications.
+    block, dept_x, dept_y, colab_type (intra/inter/same), n_publications.
 
-    Inter-department:
+    Inter (`inter`):
         Department X from college A and department Y from college B.
 
-    Intra-department:
+    Intra (`intra`):
         Two different departments from the same college.
+
+    Same (`same`):
+        Two faculty from the same department (dept_x == dept_y).
 
     Each publication contributes at most 1 to a given dept pair in a block.
     """
@@ -232,21 +235,23 @@ def department_pair_counts_by_block(long_df: pd.DataFrame) -> pd.DataFrame:
             if da == "" or db == "":
                 continue
 
+            # Same-department collaboration:
+            # two faculty from the same department (same college).
+            if a.college == b.college and da == db:
+                pair = (da, db)
+                colab_type = "same"
+
             # Intra-department collaboration:
             # two different departments from the same college.
-            if a.college == b.college and da != db:
+            elif a.college == b.college:
                 pair = (da, db) if da <= db else (db, da)
                 colab_type = "intra"
 
             # Inter-department collaboration:
             # department X from college A and department Y from college B.
-            elif a.college != b.college:
+            else:
                 pair = (da, db) if da <= db else (db, da)
                 colab_type = "inter"
-
-            # Same department within the same college is neither.
-            else:
-                continue
 
             key = (block, pair[0], pair[1], colab_type)
             seen_pairs.add(key)
@@ -261,7 +266,7 @@ def department_pair_counts_by_block(long_df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     if not rows:
-        return pd.DataFrame(columns=["block", "dept_x", "dept_y", "colab_type (college)", "n_publications"])
+        return pd.DataFrame(columns=["block", "dept_x", "dept_y", "colab_type", "n_publications"])
 
     out = pd.DataFrame(rows)
     out["block"] = pd.Categorical(out["block"], categories=BLOCK_LABELS, ordered=True)
@@ -309,9 +314,10 @@ def top_collabs_exports(long_df: pd.DataFrame, dept_pair_block_df: pd.DataFrame,
                 "n_publications": int(r["n_publications"])
             })
 
-        # intra: both depts map to this college
+        # intra: both depts map to this college (exclude same-dept pairs)
         intra_mask = agg_pairs.apply(
-            lambda r: (mapping.get(r["dept_x"], "") == college) and
+            lambda r: r["dept_x"] != r["dept_y"] and
+                      (mapping.get(r["dept_x"], "") == college) and
                       (mapping.get(r["dept_y"], "") == college),
             axis=1
         )
