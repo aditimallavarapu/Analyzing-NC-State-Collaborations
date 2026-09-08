@@ -140,48 +140,61 @@ def publications_per_capita_by_department_total(long_df: pd.DataFrame) -> pd.Dat
     return out.sort_values("n_publications_distinct", ascending=False).reset_index(drop=True)
 
 
-def college_collab_matrix_by_block(long_df: pd.DataFrame) -> pd.DataFrame:
-    """Produce a block-wise list of unique college pairs and their
-    publication counts. Returns columns: `block`, `college_x`, `college_y`,
-    `n_publications`. Each unordered pair appears once per block (A,B same
-    as B,A).
+def college_collab_matrix_by_block(long_df: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Produce one n×n college collaboration matrix per 5-year block.
+
+    Rows and columns are college names (same ordering in every block).
+    Cell (i, j), i ≠ j, is the number of publications in that block with at
+    least one faculty author from college i and one from college j.
+    The diagonal (i, i) is intra-college collaboration: publications with at
+    least two faculty authors from college i.
+    Each publication contributes at most +1 to a given cell.
     """
     df = long_df.copy()
     df = df[(df["year"] >= 2006) & (df["year"] <= 2025)].copy()
-    counts = {}
 
-    for pub_id, grp in df.groupby("pub_id"):
+    colleges = sorted(df["college"].dropna().unique())
+    matrices = {
+        block: pd.DataFrame(0, index=colleges, columns=colleges, dtype=int)
+        for block in BLOCK_LABELS
+    }
+
+    for _, grp in df.groupby("pub_id"):
         if grp.empty:
             continue
         block = assign_block(int(grp["year"].iloc[0]))
         if block == "outside_window":
             continue
 
-        present_colleges = sorted(grp["college"].dropna().unique())
-        if len(present_colleges) < 2:
+        authors = grp[["uid", "college"]].drop_duplicates("uid").dropna(subset=["college"])
+        if authors.empty:
             continue
 
-        seen_pairs = set()
-        for a, b in combinations(present_colleges, 2):
-            pair = (a, b) if a <= b else (b, a)
-            if pair in seen_pairs:
-                continue
-            seen_pairs.add(pair)
-            counts.setdefault((block, pair[0], pair[1]), 0)
-            counts[(block, pair[0], pair[1])] += 1
+        faculty_per_college = authors.groupby("college")["uid"].nunique()
+        present = sorted(faculty_per_college.index)
 
-    rows = [
-        {"block": k[0], "college_x": k[1], "college_y": k[2], "n_publications": v}
-        for k, v in counts.items()
-    ]
+        for college, n_fac in faculty_per_college.items():
+            if n_fac >= 2:
+                matrices[block].loc[college, college] += 1
 
-    if not rows:
-        return pd.DataFrame(columns=["block", "college_x", "college_y", "n_publications"])
+        for a, b in combinations(present, 2):
+            matrices[block].loc[a, b] += 1
+            matrices[block].loc[b, a] += 1
 
-    out = pd.DataFrame(rows)
-    out["block"] = pd.Categorical(out["block"], categories=BLOCK_LABELS, ordered=True)
-    out = out.sort_values(["block", "n_publications"], ascending=[True, False]).reset_index(drop=True)
-    return out
+    for mat in matrices.values():
+        mat.index.name = "college"
+
+    return matrices
+
+
+def write_college_collab_matrices(matrices: dict[str, pd.DataFrame], path: Path) -> None:
+    """Write the four block-labeled n×n matrices into one CSV file."""
+    with path.open("w", newline="") as f:
+        for i, block in enumerate(BLOCK_LABELS):
+            if i > 0:
+                f.write("\n")
+            f.write(f"block,{block}\n")
+            matrices[block].to_csv(f)
 
 
 def department_pair_counts_by_block(long_df: pd.DataFrame) -> pd.DataFrame:
@@ -248,7 +261,7 @@ def department_pair_counts_by_block(long_df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     if not rows:
-        return pd.DataFrame(columns=["block", "dept_x", "dept_y", "colab_type", "n_publications"])
+        return pd.DataFrame(columns=["block", "dept_x", "dept_y", "colab_type (college)", "n_publications"])
 
     out = pd.DataFrame(rows)
     out["block"] = pd.Categorical(out["block"], categories=BLOCK_LABELS, ordered=True)
@@ -534,13 +547,14 @@ def main():
     )
     print(per_capita_table.head(20).to_string(index=False))
 
-    print("\nTable: college collaboration matrix by block")
-    college_block_table = college_collab_matrix_by_block(long_df)
-    college_block_table.to_csv(
+    print("\nTable: college collaboration matrices by block")
+    college_block_matrices = college_collab_matrix_by_block(long_df)
+    write_college_collab_matrices(
+        college_block_matrices,
         outdir / "table6_college_collaboration_by_block.csv",
-        index=False
     )
-    print(college_block_table.head(20).to_string(index=False))
+    n = len(next(iter(college_block_matrices.values())))
+    print(f"  wrote 4 {n}x{n} matrices (one per block)")
 
     print("\nTable: department collaboration pairs by block")
     department_block_table = department_pair_counts_by_block(long_df)
