@@ -354,6 +354,7 @@ function render(yr){
   .force("link",d3.forceLink(EC).id(d=>d.id)
    .distance(d => {
     const sameDept = (d.source && d.target) && ((d.source.dept || "") === (d.target.dept || "")) && (d.source.col === d.target.col);
+<<<<<<< HEAD
     return sameDept ? 18 : (d.xc ? 62 : 38);
    }).strength(0.28))
   .force("charge",d3.forceManyBody().strength(-110))
@@ -362,6 +363,16 @@ function render(yr){
   .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.42 : 0.08))
   .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.42 : 0.08))
   .force("col",d3.forceCollide(d=>d.r+4)).alphaDecay(0.026).on("tick",tick);
+=======
+    return sameDept ? 18 : (d.xc ? 52 : 34);
+   }).strength(0.24))
+  .force("charge",d3.forceManyBody().strength(-90))
+  .force("collegeX",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.28))
+  .force("collegeY",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.28))
+  .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.75 : 0.15))
+  .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.75 : 0.15))
+  .force("col",d3.forceCollide(d=>d.r+3)).alphaDecay(0.025).on("tick",tick);
+>>>>>>> 1bb639f (Updated force layout with department attractor)
  const eSel=gE.selectAll(".edge").data(EC,d=>d.s+"-"+d.t)
   .join(en=>en.append("line").attr("class",d=>"edge "+(d.xc?"ecross":"same"))
    .attr("stroke-width",d=>wSc(d.w)).on("mouseover",eHov).on("mouseout",()=>setTimeout(maybeClr,100)));
@@ -492,6 +503,7 @@ function renderYC(side){
  const cols=[...new Set(nodes.map(n=>n.col))];const cp={};
  cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.3;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
  const deptCenters=buildDeptCenters(nodes, cp, W, H);
+<<<<<<< HEAD
  const NC=nodes.map(n=>({...n,r:rSc(Math.max(n.py,1))}));
  const EC=edges.map(e=>({
   source: e.s ?? e.source,
@@ -500,10 +512,14 @@ function renderYC(side){
   cross_college: e.xc ?? e.cross_college,
   papers: e.p ?? e.papers ?? []
  }));
+=======
+ const NC=nodes.map(n=>({...n,r:rSc(Math.max(n.py,1))}));const EC=edges.map(e=>({...e}));
+>>>>>>> 1bb639f (Updated force layout with department attractor)
  const sim=d3.forceSimulation(NC)
   .force("link",d3.forceLink(EC).id(d=>d.id)
    .distance(d => {
     const sameDept = (d.source && d.target) && ((d.source.dept || "") === (d.target.dept || "")) && (d.source.col === d.target.col);
+<<<<<<< HEAD
     return sameDept ? 18 : (d.xc ? 60 : 36);
    }).strength(0.28))
   .force("charge",d3.forceManyBody().strength(-115))
@@ -512,6 +528,16 @@ function renderYC(side){
   .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.42 : 0.08))
   .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.42 : 0.08))
   .force("col",d3.forceCollide(d=>d.r+4)).alphaDecay(0.03);
+=======
+    return sameDept ? 18 : (d.xc ? 52 : 32);
+   }).strength(0.24))
+  .force("charge",d3.forceManyBody().strength(-80))
+  .force("collegeX",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.22))
+  .force("collegeY",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.22))
+  .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.7 : 0.12))
+  .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.7 : 0.12))
+  .force("col",d3.forceCollide(d=>d.r+3)).alphaDecay(0.03);
+>>>>>>> 1bb639f (Updated force layout with department attractor)
  const eSel=g.append("g").selectAll("line").data(EC).join("line")
   .attr("stroke",d=>d.xc?"rgba(192,57,43,.4)":"rgba(0,0,0,.09)").attr("stroke-width",d=>d.xc?1.5:1);
  const dom=document.getElementById(svgId);
