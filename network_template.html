@@ -274,6 +274,31 @@ function buildLB(rn){
   list.appendChild(div);
  });
 }
+function buildDeptCenters(nodes, collegeCenters, W, H){
+ const byDept = new Map();
+ nodes.forEach(n => {
+  const key = n.col ? n.col + "::" + (n.dept || "__no_dept") : "__no_college";
+  if(!byDept.has(key))byDept.set(key,[]);
+  byDept.get(key).push(n);
+ });
+ const deptCenters = {};
+ const keys = [...byDept.keys()];
+ keys.forEach((key, idx) => {
+  const [college] = key.split("::");
+  const anchor = collegeCenters[college] || {x:W/2, y:H/2};
+  const count = Math.max(1, keys.length);
+  const angle = (2 * Math.PI * (idx / count)) - Math.PI / 2;
+  const ring = Math.min(W, H) * (0.08 + 0.035 * (idx % 4));
+  const x = anchor.x + ring * Math.cos(angle);
+  const y = anchor.y + ring * Math.sin(angle);
+  deptCenters[key] = {x, y};
+ });
+ return deptCenters;
+}
+function deptTarget(d, collegeCenters, deptCenters, W, H){
+ const key = d.col ? d.col + "::" + (d.dept || "__no_dept") : "__no_college";
+ return deptCenters[key] || (collegeCenters[d.col] || {x:W/2, y:H/2});
+}
 function render(yr){
  if(simN)simN.stop();
  initSVG();
@@ -297,14 +322,21 @@ function render(yr){
  const cols=[...new Set(nodes.map(n=>n.col))];
  const cp={};
  cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.27;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
+ const deptCenters=buildDeptCenters(nodes, cp, W, H);
  const NC=nodes.map(n=>({...n,r:rSc(n.py||1)}));
  const EC=edges.map(e=>({...e}));
  simN=d3.forceSimulation(NC)
-  .force("link",d3.forceLink(EC).id(d=>d.id).distance(38).strength(0.2))
-  .force("charge",d3.forceManyBody().strength(-65))
-  .force("x",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.3))
-  .force("y",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.3))
-  .force("col",d3.forceCollide(d=>d.r+2)).alphaDecay(0.025).on("tick",tick);
+  .force("link",d3.forceLink(EC).id(d=>d.id)
+   .distance(d => {
+    const sameDept = (d.source && d.target) && ((d.source.dept || "") === (d.target.dept || "")) && (d.source.col === d.target.col);
+    return sameDept ? 18 : (d.xc ? 52 : 34);
+   }).strength(0.24))
+  .force("charge",d3.forceManyBody().strength(-90))
+  .force("collegeX",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.28))
+  .force("collegeY",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.28))
+  .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.75 : 0.15))
+  .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.75 : 0.15))
+  .force("col",d3.forceCollide(d=>d.r+3)).alphaDecay(0.025).on("tick",tick);
  const eSel=gE.selectAll(".edge").data(EC,d=>d.s+"-"+d.t)
   .join(en=>en.append("line").attr("class",d=>"edge "+(d.xc?"ecross":"same"))
    .attr("stroke-width",d=>wSc(d.w)).on("mouseover",eHov).on("mouseout",()=>setTimeout(maybeClr,100)));
@@ -433,13 +465,20 @@ function renderYC(side){
  const rSc=d3.scaleSqrt().domain([Math.max(1,d3.min(pv)||1),Math.max(2,d3.max(pv)||2)]).range([3,15]);
  const cols=[...new Set(nodes.map(n=>n.col))];const cp={};
  cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.3;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
+ const deptCenters=buildDeptCenters(nodes, cp, W, H);
  const NC=nodes.map(n=>({...n,r:rSc(Math.max(n.py,1))}));const EC=edges.map(e=>({...e}));
  const sim=d3.forceSimulation(NC)
-  .force("link",d3.forceLink(EC).id(d=>d.id).distance(30).strength(0.2))
-  .force("charge",d3.forceManyBody().strength(-50))
-  .force("x",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.28))
-  .force("y",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.28))
-  .force("col",d3.forceCollide(d=>d.r+2)).alphaDecay(0.03);
+  .force("link",d3.forceLink(EC).id(d=>d.id)
+   .distance(d => {
+    const sameDept = (d.source && d.target) && ((d.source.dept || "") === (d.target.dept || "")) && (d.source.col === d.target.col);
+    return sameDept ? 18 : (d.xc ? 52 : 32);
+   }).strength(0.24))
+  .force("charge",d3.forceManyBody().strength(-80))
+  .force("collegeX",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.22))
+  .force("collegeY",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.22))
+  .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.7 : 0.12))
+  .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.7 : 0.12))
+  .force("col",d3.forceCollide(d=>d.r+3)).alphaDecay(0.03);
  const eSel=g.append("g").selectAll("line").data(EC).join("line")
   .attr("stroke",d=>d.xc?"rgba(192,57,43,.4)":"rgba(0,0,0,.09)").attr("stroke-width",d=>d.xc?1.5:1);
  const dom=document.getElementById(svgId);
