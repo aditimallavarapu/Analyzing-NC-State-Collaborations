@@ -69,7 +69,16 @@ select:focus, input:focus { border-color: var(--acc); }
 .ldiv { height: 1px; background: var(--bord); margin: 5px 0; }
 .hint { font-size: 9px; color: var(--mut); line-height: 1.7; padding: 2px 6px 4px; }
 #lb { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 5px 10px 4px; min-height: 0; }
-#lb-list { overflow-y: auto; flex: 1; }
+#lb-list { overflow-y: auto; flex: 0 0 auto; max-height: 46%; }
+#dept-panel { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--bord); flex-shrink: 0; width: 100%; }
+#dept-panel.show { display: flex; flex-direction: column; }
+.dept-block { margin-bottom: 8px; width: 100%; }
+.dept-block h4 { font-size: 9px; font-weight: 700; color: var(--mut); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; text-align: left; }
+.dept-list { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+.dept-row { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 6px; font-size: 10px; width: 100%; }
+.dept-rank { width: 12px; color: var(--mut); font-weight: 700; text-align: left; }
+.dept-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.dept-val { color: var(--text); font-weight: 700; text-align: left; }
 .lbi { display: flex; align-items: center; gap: 4px; padding: 3px 2px; border-radius: 4px; font-size: 10px; cursor: pointer; }
 .lbi:hover { background: rgba(0,0,0,.04); }
 .lbr { color: var(--mut); width: 16px; flex-shrink: 0; font-weight: 700; }
@@ -158,6 +167,16 @@ select:focus, input:focus { border-color: var(--acc); }
         <div id="lb">
           <h3 id="lbt">Top 10 all colleges</h3>
           <div id="lb-list"></div>
+          <div id="dept-panel">
+            <div class="dept-block">
+              <h4>Top inter-college depts</h4>
+              <div id="dept-inter" class="dept-list"></div>
+            </div>
+            <div class="dept-block">
+              <h4>Top same-college depts</h4>
+              <div id="dept-intra" class="dept-list"></div>
+            </div>
+          </div>
         </div>
         <button id="dlb" onclick="dlCSV()">&#8595; Download Network CSV</button>
       </div>
@@ -268,14 +287,63 @@ function buildLeg(rn){
   const r=document.createElement("div");
   r.className="lr"+(hidC.has(col)?" off":"")+(col===selC?" sel":"");
   r.innerHTML='<div class="ld" style="background:'+color+'"></div><span class="ll">'+(CSH[col]||col)+'</span><span class="lc">'+c+"</span>";
-  r.addEventListener("click",()=>{selC=selC===col?null:col;buildLeg(rn);applyF();buildLB(rn);});
-  r.addEventListener("dblclick",e=>{e.stopPropagation();hidC.has(col)?hidC.delete(col):hidC.add(col);buildLeg(rn);applyF();buildLB(rn);});
+  r.addEventListener("click",()=>{selC=selC===col?null:col;buildLeg(rn);applyF();buildLB(rn, GRAPHS[CY]);});
+  r.addEventListener("dblclick",e=>{e.stopPropagation();hidC.has(col)?hidC.delete(col):hidC.add(col);buildLeg(rn);applyF();buildLB(rn, GRAPHS[CY]);});
   el.appendChild(r);
  });
 }
-function buildLB(rn){
+function buildDeptBreakdown(raw, college){
+ const panel=document.getElementById("dept-panel");
+ const interEl=document.getElementById("dept-inter");
+ const intraEl=document.getElementById("dept-intra");
+ if(!college || !raw){ panel.classList.remove("show"); return; }
+ const nodeMap=new Map(raw.n.map(n=>[n.id,n]));
+ const inter=new Map(), intra=new Map();
+ raw.n.filter(n=>n.col===college).forEach(n=>{
+  const dept=(n.dept||"Other").trim() || "Other";
+  intra.set(dept, (intra.get(dept)||0) + (n.py || 0));
+ });
+ raw.e.forEach(e=>{
+  const s=nodeMap.get(e.s), t=nodeMap.get(e.t);
+  if(!s || !t) return;
+  const w=Number(e.w || e.weight || 1) || 1;
+  if(s.col===college && t.col!==college){
+   const dept=(s.dept||"Other").trim() || "Other";
+   inter.set(dept, (inter.get(dept)||0) + w);
+  }
+  if(t.col===college && s.col!==college){
+   const dept=(t.dept||"Other").trim() || "Other";
+   inter.set(dept, (inter.get(dept)||0) + w);
+  }
+  if(s.col===college && t.col===college){
+   const sd=(s.dept||"Other").trim() || "Other";
+   const td=(t.dept||"Other").trim() || "Other";
+   intra.set(sd, (intra.get(sd)||0) + (w || 1));
+   intra.set(td, (intra.get(td)||0) + (w || 1));
+  }
+ });
+ const interItems=[...inter.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3);
+ const intraItems=[...intra.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3);
+ const renderList=(container, items, type)=>{
+  container.innerHTML="";
+  if(!items.length){
+   container.innerHTML='<div class="dept-row"><span class="dept-name">No data</span></div>';
+   return;
+  }
+  items.forEach(([dept,val],i)=>{
+   const row=document.createElement("div");
+   row.className="dept-row";
+   row.innerHTML='<span class="dept-rank">'+(i+1)+'.</span><span class="dept-name" title="'+dept+'">'+dept+'</span><span class="dept-val">'+(type==="inter"?val:val.toLocaleString())+'</span>';
+   container.appendChild(row);
+  });
+ };
+ renderList(interEl, interItems, "inter");
+ renderList(intraEl, intraItems, "intra");
+ panel.classList.add("show");
+}
+function buildLB(rn, raw){
  const title=document.getElementById("lbt"),list=document.getElementById("lb-list");
- const lbY=LB[String(CY)];if(!lbY){list.innerHTML="";return;}
+ const lbY=LB[String(CY)];if(!lbY){list.innerHTML="";buildDeptBreakdown(raw, selC);return;}
  let items;
  if(selC&&lbY[selC]){title.textContent="Top 10 - "+(CSH[selC]||selC);items=lbY[selC];}
  else{title.textContent="Top 10 all colleges";
@@ -291,6 +359,7 @@ function buildLB(rn){
   div.addEventListener("mouseout",()=>{if(!document.querySelector(".lbi:hover"))clrHov();});
   list.appendChild(div);
  });
+ buildDeptBreakdown(raw, selC);
 }
 function buildDeptCenters(nodes, collegeCenters, W, H){
  const byDept = new Map();
@@ -327,7 +396,7 @@ function render(yr){
  if(cfOnly)nodes=nodes.filter(n=>n.cf);
  const aids=new Set(nodes.map(n=>n.id));
  const edges=raw.e.filter(e=>aids.has(e.s)&&aids.has(e.t));
- buildLeg(raw.n);buildLB(raw.n);
+ buildLeg(raw.n);buildLB(raw.n, raw);
  nmap={};nodes.forEach(n=>{nmap[n.id]=n;});
  const xc=edges.filter(e=>e.xc).length;
  document.getElementById("sn").innerHTML="<b>"+nodes.length+"</b> faculty";
@@ -354,7 +423,6 @@ function render(yr){
   .force("link",d3.forceLink(EC).id(d=>d.id)
    .distance(d => {
     const sameDept = (d.source && d.target) && ((d.source.dept || "") === (d.target.dept || "")) && (d.source.col === d.target.col);
-<<<<<<< HEAD
     return sameDept ? 18 : (d.xc ? 62 : 38);
    }).strength(0.28))
   .force("charge",d3.forceManyBody().strength(-110))
@@ -363,16 +431,6 @@ function render(yr){
   .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.42 : 0.08))
   .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.42 : 0.08))
   .force("col",d3.forceCollide(d=>d.r+4)).alphaDecay(0.026).on("tick",tick);
-=======
-    return sameDept ? 18 : (d.xc ? 52 : 34);
-   }).strength(0.24))
-  .force("charge",d3.forceManyBody().strength(-90))
-  .force("collegeX",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.28))
-  .force("collegeY",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.28))
-  .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.75 : 0.15))
-  .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.75 : 0.15))
-  .force("col",d3.forceCollide(d=>d.r+3)).alphaDecay(0.025).on("tick",tick);
->>>>>>> 1bb639f (Updated force layout with department attractor)
  const eSel=gE.selectAll(".edge").data(EC,d=>d.s+"-"+d.t)
   .join(en=>en.append("line").attr("class",d=>"edge "+(d.xc?"ecross":"same"))
    .attr("stroke-width",d=>wSc(d.w)).on("mouseover",eHov).on("mouseout",()=>setTimeout(maybeClr,100)));
@@ -503,7 +561,6 @@ function renderYC(side){
  const cols=[...new Set(nodes.map(n=>n.col))];const cp={};
  cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.3;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
  const deptCenters=buildDeptCenters(nodes, cp, W, H);
-<<<<<<< HEAD
  const NC=nodes.map(n=>({...n,r:rSc(Math.max(n.py,1))}));
  const EC=edges.map(e=>({
   source: e.s ?? e.source,
@@ -512,14 +569,10 @@ function renderYC(side){
   cross_college: e.xc ?? e.cross_college,
   papers: e.p ?? e.papers ?? []
  }));
-=======
- const NC=nodes.map(n=>({...n,r:rSc(Math.max(n.py,1))}));const EC=edges.map(e=>({...e}));
->>>>>>> 1bb639f (Updated force layout with department attractor)
  const sim=d3.forceSimulation(NC)
   .force("link",d3.forceLink(EC).id(d=>d.id)
    .distance(d => {
     const sameDept = (d.source && d.target) && ((d.source.dept || "") === (d.target.dept || "")) && (d.source.col === d.target.col);
-<<<<<<< HEAD
     return sameDept ? 18 : (d.xc ? 60 : 36);
    }).strength(0.28))
   .force("charge",d3.forceManyBody().strength(-115))
@@ -528,16 +581,6 @@ function renderYC(side){
   .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.42 : 0.08))
   .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.42 : 0.08))
   .force("col",d3.forceCollide(d=>d.r+4)).alphaDecay(0.03);
-=======
-    return sameDept ? 18 : (d.xc ? 52 : 32);
-   }).strength(0.24))
-  .force("charge",d3.forceManyBody().strength(-80))
-  .force("collegeX",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.22))
-  .force("collegeY",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.22))
-  .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.7 : 0.12))
-  .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.7 : 0.12))
-  .force("col",d3.forceCollide(d=>d.r+3)).alphaDecay(0.03);
->>>>>>> 1bb639f (Updated force layout with department attractor)
  const eSel=g.append("g").selectAll("line").data(EC).join("line")
   .attr("stroke",d=>d.xc?"rgba(192,57,43,.4)":"rgba(0,0,0,.09)").attr("stroke-width",d=>d.xc?1.5:1);
  const dom=document.getElementById(svgId);
