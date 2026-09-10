@@ -12,7 +12,11 @@ Cleans publications.csv and Faculty.csv and produces:
                                    cleaning is auditable and reproducible.
 
 Usage:
-    python 01_clean_and_merge.py --pubs exported_works_faculty-2005-present-2_20260731.csv --faculty Faculty.csv --outdir clean/
+    python 01_clean_and_merge.py \
+        --pubs exported_works_faculty-2005-present-2_20260731.csv \
+        --faculty Faculty.csv \
+        --allowlist depts.txt \
+        --outdir clean/
 """
 
 import argparse
@@ -28,6 +32,39 @@ REAL_PUB_COLS = [
 ]
 
 AUTHOR_RE = re.compile(r"^(.*)\((\w+)\)$")
+
+# Colleges in depts.txt that are not kept in the analysis set.
+EXCLUDED_ALLOWLIST_COLLEGES = {
+    "NC State Administration and Offices",
+    "Interdisciplinary Programs",
+    "Graduate School",
+}
+
+# Expected unique-pub count after allowlist filter (Option A); for the report note only.
+EXPECTED_ALLOWLIST_PUBS = 62949
+
+
+def load_allowlist(path: Path) -> tuple[set[str], pd.DataFrame]:
+    """Load depts.txt (TSV: department, type, college).
+
+    Drops rows whose college is in EXCLUDED_ALLOWLIST_COLLEGES. Returns
+    (allowed department names, table of excluded allowlist rows for logging).
+    """
+    rows = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split("\t")
+        rows.append({
+            "department": parts[0].strip(),
+            "unit_type": parts[1].strip() if len(parts) > 1 else "",
+            "college": parts[2].strip() if len(parts) > 2 else "",
+        })
+    df = pd.DataFrame(rows)
+    excluded = df[df["college"].isin(EXCLUDED_ALLOWLIST_COLLEGES)].copy()
+    kept = df[~df["college"].isin(EXCLUDED_ALLOWLIST_COLLEGES)]
+    return set(kept["department"]), excluded
 
 
 def load_publications(path: str) -> tuple[pd.DataFrame, dict]:
@@ -136,6 +173,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pubs", required=True)
     ap.add_argument("--faculty", required=True)
+    ap.add_argument(
+        "--allowlist",
+        default="depts.txt",
+        help="TSV allowlist (department, type, college). "
+             "Non-academic colleges listed in EXCLUDED_ALLOWLIST_COLLEGES are dropped.",
+    )
     ap.add_argument("--outdir", default="clean")
     ap.add_argument("--year-min", type=int, default=2006,
                      help="Restrict to publications in [year-min, year-max]. "
@@ -176,11 +219,63 @@ def main():
     print("Building faculty-publication long table (this is the slow step)...", flush=True)
     long_df, link_report = build_long_table(pubs, faculty)
 
+    print(f"Loading allowlist from {args.allowlist}...", flush=True)
+    allow_depts, excluded_allowlist_rows = load_allowlist(Path(args.allowlist))
+
+    # --- Before allowlist drop (for the quality report) ---
+    n_pubs_year_window = len(pubs)
+    n_pubs_faculty_matched = int(long_df["pub_id"].nunique())
+    n_rows_before = len(long_df)
+
+    long_df["department"] = long_df["department"].astype(str).str.strip()
+    long_df["college"] = long_df["college"].astype(str).str.strip()
+
+    excluded_mask = ~long_df["department"].isin(allow_depts)
+    excluded_rows = long_df.loc[excluded_mask]
+    excluded_pub_ids = set(excluded_rows["pub_id"].unique())
+    # Pubs that disappear entirely once non-allowlist authorship rows are removed
+    pubs_only_non_allowlist = excluded_pub_ids - set(
+        long_df.loc[~excluded_mask, "pub_id"].unique()
+    )
+
+    excluded_by_college = (
+        excluded_rows.groupby("college")
+        .agg(n_authorship_rows=("uid", "size"), n_faculty=("uid", "nunique"),
+             n_publications=("pub_id", "nunique"))
+        .sort_values("n_publications", ascending=False)
+    )
+    excluded_by_dept = (
+        excluded_rows.groupby(["college", "department"])
+        .agg(n_authorship_rows=("uid", "size"), n_faculty=("uid", "nunique"),
+             n_publications=("pub_id", "nunique"))
+        .sort_values("n_publications", ascending=False)
+    )
+
+    # Option A: keep only authorship rows whose department is allowlisted
+    long_df = long_df.loc[~excluded_mask].copy()
+    keep_pubs = set(long_df["pub_id"].unique())
+    pubs = pubs[pubs["pub_id"].isin(keep_pubs)].copy()
+
+    n_pubs_after_allowlist = int(long_df["pub_id"].nunique())
+    n_rows_after = len(long_df)
+
     pubs.to_csv(outdir / "publications_clean.csv", index=False)
     long_df.to_csv(outdir / "faculty_authorship_long.csv", index=False)
 
-    n_colleges = faculty["college"].nunique()
-    n_depts = faculty["department"].nunique()
+    n_colleges = long_df["college"].nunique()
+    n_depts = long_df["department"].nunique()
+
+    delta = n_pubs_after_allowlist - EXPECTED_ALLOWLIST_PUBS
+    allowlist_note = (
+        f"publications_after_allowlist ({n_pubs_after_allowlist}) matches "
+        f"expected ~{EXPECTED_ALLOWLIST_PUBS}."
+        if abs(delta) <= 50
+        else (
+            f"WARNING: publications_after_allowlist is {n_pubs_after_allowlist}, "
+            f"expected ~{EXPECTED_ALLOWLIST_PUBS} (delta={delta:+d}). "
+            f"Check allowlist path and department name spelling."
+        )
+    )
 
     report_lines = [
         "DATA QUALITY REPORT",
@@ -192,22 +287,51 @@ def main():
         "",
         "Faculty",
         "-------",
-        f"faculty_rows: {len(faculty)}",
-        f"colleges_in_faculty_file: {n_colleges}",
-        f"departments_in_faculty_file: {n_depts}",
+        f"faculty_rows_in_Faculty_csv: {len(faculty)}",
+        f"colleges_in_analysis_long_table: {n_colleges}",
+        f"departments_in_analysis_long_table: {n_depts}",
         "",
-        "NOTE: Faculty.csv currently lists more college categories than the",
-        "10 academic colleges used in your existing Table 2 / Figure 2 (e.g.",
-        "'NC State Administration and Offices', 'University College',",
-        "'Interdisciplinary Programs', 'Graduate School' also appear as",
-        "college values). Decide and document whether these 4 non-academic",
-        "units are included in your '14 colleges' count or excluded, and",
-        "apply that decision consistently everywhere a college count is",
-        "reported (intro, methods, and every table/figure).",
-        "",
-        "Faculty-publication linkage",
-        "----------------------------",
+        "Faculty-publication linkage (before allowlist filter)",
+        "-----------------------------------------------------",
         *(f"{k}: {v}" for k, v in link_report.items()),
+        f"publications_faculty_matched_before_allowlist: {n_pubs_faculty_matched}",
+        f"authorship_rows_before_allowlist: {n_rows_before}",
+        "",
+        "Allowlist filter (Option A)",
+        "---------------------------",
+        f"allowlist_file: {args.allowlist}",
+        f"allowlist_departments_kept: {len(allow_depts)}",
+        f"allowlist_rows_excluded_by_nonacademic_college: {len(excluded_allowlist_rows)}",
+        f"excluded_allowlist_colleges: {', '.join(sorted(EXCLUDED_ALLOWLIST_COLLEGES))}",
+        f"publications_in_year_window: {n_pubs_year_window}",
+        f"publications_faculty_matched_before_allowlist: {n_pubs_faculty_matched}",
+        f"publications_after_allowlist: {n_pubs_after_allowlist}",
+        f"authorship_rows_after_allowlist: {n_rows_after}",
+        f"authorship_rows_dropped: {n_rows_before - n_rows_after}",
+        f"publications_lost_entirely_to_allowlist: {len(pubs_only_non_allowlist)}",
+        allowlist_note,
+        "",
+        "Excluded authorship activity before drop (by college)",
+        "-----------------------------------------------------",
+        "(Counts below are from rows whose department is NOT in the kept allowlist.",
+        " A publication can appear here and still be kept if it also has an",
+        " allowlisted co-author.)",
+        excluded_by_college.to_string() if len(excluded_by_college) else "(none)",
+        "",
+        "Excluded authorship activity before drop (by college, department)",
+        "-----------------------------------------------------------------",
+        excluded_by_dept.to_string() if len(excluded_by_dept) else "(none)",
+        "",
+        "Allowlist departments dropped as non-academic (from depts.txt)",
+        "----------------------------------------------------------------",
+        (
+            excluded_allowlist_rows[["department", "college"]]
+            .drop_duplicates()
+            .sort_values(["college", "department"])
+            .to_string(index=False)
+            if len(excluded_allowlist_rows)
+            else "(none)"
+        ),
     ]
     (outdir / "data_quality_report.txt").write_text("\n".join(report_lines))
     print("\n".join(report_lines))
