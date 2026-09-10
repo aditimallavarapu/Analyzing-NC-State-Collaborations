@@ -1,1 +1,6 @@
 publications_clean.csv
+
+# Large generated data files
+publications_clean.csv
+faculty_authorship_long.csv
+faculty_clean.csv
