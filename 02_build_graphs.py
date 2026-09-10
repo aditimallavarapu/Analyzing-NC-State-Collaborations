@@ -29,6 +29,7 @@ from collections import defaultdict, Counter
 # ── Paths ────────────────────────────────────────────────────────────
 PUB_CSV    = "publications_clean.csv"
 FAC_CSV    = "faculty_clean.csv"
+LONG_FAC_CSV = "faculty_authorship_long.csv"
 COUNTS_CSV = "faculty_pub_counts.csv"
 CFEP_XLSX  = "CFEP_2026_PARTNERS.xlsx"
 OUT_DIR    = "network_data"
@@ -64,13 +65,33 @@ COLLEGE_COLORS = {
 
 # ── Load data ─────────────────────────────────────────────────────────
 print("Loading data...")
-pub    = pd.read_csv(PUB_CSV, low_memory=False)
-fac    = pd.read_csv(FAC_CSV, low_memory=False)
-counts = pd.read_csv(COUNTS_CSV, low_memory=False)
+pub = pd.read_csv(PUB_CSV, low_memory=False) if os.path.exists(PUB_CSV) else pd.DataFrame()
 
-fac_by_uid    = fac.set_index("uid").to_dict("index")
-counts_by_uid = dict(zip(counts["uid"], counts["total_pubs"]))
-valid_uids    = set(fac["uid"])
+if os.path.exists(FAC_CSV):
+    fac = pd.read_csv(FAC_CSV, low_memory=False)
+    fac_by_uid = fac.set_index("uid").to_dict("index")
+    counts = pd.read_csv(COUNTS_CSV, low_memory=False) if os.path.exists(COUNTS_CSV) else pd.DataFrame()
+    if not counts.empty and "uid" in counts.columns and "total_pubs" in counts.columns:
+        counts_by_uid = dict(zip(counts["uid"], counts["total_pubs"]))
+    else:
+        counts_by_uid = {}
+    valid_uids = set(fac["uid"])
+    long_df = None
+else:
+    if not os.path.exists(LONG_FAC_CSV):
+        raise FileNotFoundError(f"Neither {FAC_CSV} nor {LONG_FAC_CSV} was found. Need faculty metadata or faculty_authorship_long.csv.")
+    long_df = pd.read_csv(LONG_FAC_CSV, low_memory=False)
+    fac = long_df[["uid", "name", "college", "department"]].drop_duplicates("uid").copy()
+    fac["is_asst_prof"] = False
+    fac["shib_title"] = ""
+    fac_by_uid = fac.set_index("uid").to_dict("index")
+    counts_by_uid = long_df.groupby("uid")["pub_id"].nunique().to_dict()
+    valid_uids = set(fac["uid"])
+
+# fallback: if no faculty_clean exists but the publication table already contains the author list
+if long_df is None and "nc_state_people" in pub.columns:
+    # keep legacy path working
+    long_df = None
 
 # ── CFEP data ─────────────────────────────────────────────────────────
 cfep_uids        = set()
@@ -122,43 +143,71 @@ leaderboard = {}
 
 print(f"\nBuilding graphs for {len(YEARS)} years...")
 for yr in YEARS:
-    df_yr = pub[pub["year"] == yr]
+    if long_df is not None:
+        df_yr = long_df[long_df["year"] == yr].copy()
+        person_pubs = df_yr.groupby("uid").size().to_dict()
+        title_lookup = dict(zip(pub["pub_id"], pub["title"])) if not pub.empty and "pub_id" in pub.columns else {}
+        reduced = []
+        for pub_id, pub_group in df_yr.groupby("pub_id"):
+            uids = sorted({row["uid"] for _, row in pub_group.iterrows() if row["uid"] in valid_uids})
+            if len(uids) < 2:
+                continue
+            reduced.append((pub_id, uids, pub_group.iloc[0].get("title", title_lookup.get(pub_id, ""))))
+        edge_counter = Counter()
+        edge_papers  = defaultdict(list)
+        edge_cross   = {}
 
-    # Count publications per faculty member this year
-    person_pubs = defaultdict(int)
-    for _, row in df_yr.iterrows():
-        for name, uid in parse_people(row["nc_state_people"]):
-            if uid in valid_uids:
-                person_pubs[uid] += 1
+        for pub_id, uids, title in reduced:
+            for i in range(len(uids)):
+                for j in range(i + 1, len(uids)):
+                    a, b = min(uids[i], uids[j]), max(uids[i], uids[j])
+                    key = (a, b)
+                    edge_counter[key] += 1
+                    if len(edge_papers[key]) < 3:
+                        edge_papers[key].append(str(title)[:70])
+                    ca = fac_by_uid.get(uids[i], {}).get("college", "")
+                    cb = fac_by_uid.get(uids[j], {}).get("college", "")
+                    edge_cross[key] = (ca != cb and ca in VALID_COLLEGES and cb in VALID_COLLEGES)
 
-    # Active = faculty with ≥1 pub this year AND valid college
-    active = {
-        uid for uid, cnt in person_pubs.items()
-        if fac_by_uid.get(uid, {}).get("college", "") in VALID_COLLEGES
-    }
+        active = {uid for uid, cnt in person_pubs.items() if fac_by_uid.get(uid, {}).get("college", "") in VALID_COLLEGES}
+    else:
+        df_yr = pub[pub["year"] == yr]
 
-    # Build edges between NC State co-authors
-    edge_counter = Counter()
-    edge_papers  = defaultdict(list)
-    edge_cross   = {}
+        # Count publications per faculty member this year
+        person_pubs = defaultdict(int)
+        for _, row in df_yr.iterrows():
+            for name, uid in parse_people(row["nc_state_people"]):
+                if uid in valid_uids:
+                    person_pubs[uid] += 1
 
-    for _, row in df_yr.iterrows():
-        ppl  = parse_people(row["nc_state_people"])
-        uids = [uid for _, uid in ppl if uid in active]
-        if len(uids) < 2:
-            continue
-        for i in range(len(uids)):
-            for j in range(i + 1, len(uids)):
-                a, b = min(uids[i], uids[j]), max(uids[i], uids[j])
-                key  = (a, b)
-                edge_counter[key] += 1
-                if len(edge_papers[key]) < 3:
-                    edge_papers[key].append(str(row["title"])[:70])
-                ca = fac_by_uid.get(uids[i], {}).get("college", "")
-                cb = fac_by_uid.get(uids[j], {}).get("college", "")
-                edge_cross[key] = (ca != cb and
-                                   ca in VALID_COLLEGES and
-                                   cb in VALID_COLLEGES)
+        # Active = faculty with ≥1 pub this year AND valid college
+        active = {
+            uid for uid, cnt in person_pubs.items()
+            if fac_by_uid.get(uid, {}).get("college", "") in VALID_COLLEGES
+        }
+
+        # Build edges between NC State co-authors
+        edge_counter = Counter()
+        edge_papers  = defaultdict(list)
+        edge_cross   = {}
+
+        for _, row in df_yr.iterrows():
+            ppl  = parse_people(row["nc_state_people"])
+            uids = [uid for _, uid in ppl if uid in active]
+            if len(uids) < 2:
+                continue
+            for i in range(len(uids)):
+                for j in range(i + 1, len(uids)):
+                    a, b = min(uids[i], uids[j]), max(uids[i], uids[j])
+                    key  = (a, b)
+                    edge_counter[key] += 1
+                    if len(edge_papers[key]) < 3:
+                        edge_papers[key].append(str(row["title"])[:70])
+                    ca = fac_by_uid.get(uids[i], {}).get("college", "")
+                    cb = fac_by_uid.get(uids[j], {}).get("college", "")
+                    edge_cross[key] = (ca != cb and
+                                       ca in VALID_COLLEGES and
+                                       cb in VALID_COLLEGES)
 
     # ── Write nodes CSV ───────────────────────────────────────────────
     node_rows = []
