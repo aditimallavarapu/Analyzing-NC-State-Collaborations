@@ -21,6 +21,7 @@ Run:
 
 import json
 import os
+import re
 import pandas as pd
 
 # ── Config ────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ YEARS     = list(range(2006, 2026))
 NET_DIR   = "network_data"
 TEMPLATE  = "network_template.html"
 OUTPUT    = "ncstate_research_networks.html"
+PSI_PUB_CSV = "PSI_NC_affiliation.csv"
 
 COLLEGE_COLORS = {
     "College of Engineering":                   "#0072B2",
@@ -39,8 +41,67 @@ COLLEGE_COLORS = {
     "Poole College of Management":               "#F0E442",
     "College of Natural Resources":              "#9B59B6",
     "Wilson College of Textiles":                "#1ABC9C",
-    "College of Design":                         "#E74C3C",
+    # NOTE: not red — red is reserved for cross-college edge highlighting
+    "College of Design":                         "#34495E",
 }
+
+# ── PSI (Plant Sciences Initiative) collaboration data ──────────────────
+# Parsed straight from PSI_NC_affiliation.csv's "nc_state_people" column
+# (NC State co-authors only). College/department are deliberately NOT
+# resolved here — most of these 1,441 co-authors aren't in any faculty
+# roster (students, postdocs, staff), so college is only meaningful for
+# whoever is also a real node in the main network. That filtering happens
+# client-side against GRAPHS, where a person's college is already known.
+def _parse_people(val):
+    if not isinstance(val, str) or not val.strip():
+        return []
+    out = []
+    for part in val.split(";"):
+        part = part.strip()
+        m = re.match(r"^(.+?)\s*\(([^)]+)\)\s*$", part)
+        if m:
+            out.append((m.group(1).strip(), m.group(2).strip().lower()))
+    return out
+
+PSI_NET = {}
+if os.path.exists(PSI_PUB_CSV):
+    psi_pub_df = pd.read_csv(PSI_PUB_CSV, low_memory=False)
+    psi_nodes_by_year = {}   # year -> {uid: {"nm":..., "py":count}}
+    psi_edges_by_year = {}   # year -> {(a,b): {"w":count, "p":[papers]}}
+
+    for _, row in psi_pub_df.iterrows():
+        try:
+            yr = int(row.get("year"))
+        except (TypeError, ValueError):
+            continue
+        people = _parse_people(row.get("nc_state_people"))
+        if not people:
+            continue
+        title = str(row.get("title", "") or "")[:70]
+        yn = psi_nodes_by_year.setdefault(yr, {})
+        ye = psi_edges_by_year.setdefault(yr, {})
+        for nm, uid in people:
+            ent = yn.setdefault(uid, {"nm": nm, "py": 0})
+            ent["py"] += 1
+        uids = [uid for _, uid in people]
+        for i in range(len(uids)):
+            for j in range(i + 1, len(uids)):
+                a, b = min(uids[i], uids[j]), max(uids[i], uids[j])
+                e = ye.setdefault((a, b), {"w": 0, "p": []})
+                e["w"] += 1
+                if title and len(e["p"]) < 3 and title not in e["p"]:
+                    e["p"].append(title)
+
+    for yr in sorted(psi_nodes_by_year):
+        nodes = [{"id": uid, "nm": info["nm"], "py": info["py"]}
+                 for uid, info in psi_nodes_by_year[yr].items()]
+        edges = [{"s": a, "t": b, "w": info["w"], "p": info["p"]}
+                 for (a, b), info in psi_edges_by_year.get(yr, {}).items()]
+        PSI_NET[yr] = {"n": nodes, "e": edges}
+    print(f"Loaded PSI collaboration data: {sum(len(v['n']) for v in PSI_NET.values())} "
+          f"person-year rows across {len(PSI_NET)} years from {PSI_PUB_CSV}")
+else:
+    print(f"  WARNING: {PSI_PUB_CSV} not found — PSI Focus tab will be empty")
 
 # ── Load per-year graph data from CSVs ────────────────────────────────
 print("Reading per-year CSVs...")
@@ -121,8 +182,10 @@ else:
 graphs_js = json.dumps(graphs,     separators=(",", ":"))
 lb_js     = json.dumps(leaderboard, separators=(",", ":"))
 cfep_js   = json.dumps(cfep_data,   separators=(",", ":"))
+psi_js    = json.dumps(PSI_NET,    separators=(",", ":"))
 
-print(f"\nData sizes: graphs={len(graphs_js)//1024}KB  lb={len(lb_js)//1024}KB  cfep={len(cfep_js)//1024}KB")
+print(f"\nData sizes: graphs={len(graphs_js)//1024}KB  lb={len(lb_js)//1024}KB  "
+      f"cfep={len(cfep_js)//1024}KB  psi={len(psi_js)//1024}KB")
 
 # ── Load template and inject ──────────────────────────────────────────
 if not os.path.exists(TEMPLATE):
@@ -134,9 +197,10 @@ with open(TEMPLATE, encoding="utf-8") as f:
 html = html.replace("__GRAPHS__", graphs_js)
 html = html.replace("__LB__",     lb_js)
 html = html.replace("__CFEP__",   cfep_js)
+html = html.replace("__PSI_NET__", psi_js)
 
 # ── Verify placeholders were replaced ────────────────────────────────
-for placeholder in ("__GRAPHS__", "__LB__", "__CFEP__"):
+for placeholder in ("__GRAPHS__", "__LB__", "__CFEP__", "__PSI_NET__"):
     if placeholder in html:
         print(f"  ERROR: placeholder {placeholder} was not replaced!")
 
