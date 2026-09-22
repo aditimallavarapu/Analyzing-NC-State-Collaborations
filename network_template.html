@@ -69,7 +69,16 @@ select:focus, input:focus { border-color: var(--acc); }
 .ldiv { height: 1px; background: var(--bord); margin: 5px 0; }
 .hint { font-size: 9px; color: var(--mut); line-height: 1.7; padding: 2px 6px 4px; }
 #lb { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 5px 10px 4px; min-height: 0; }
-#lb-list { overflow-y: auto; flex: 1; }
+#lb-list { overflow-y: auto; flex: 0 0 auto; max-height: 46%; }
+#dept-panel { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--bord); flex-shrink: 0; width: 100%; }
+#dept-panel.show { display: flex; flex-direction: column; }
+.dept-block { margin-bottom: 8px; width: 100%; }
+.dept-block h4 { font-size: 9px; font-weight: 700; color: var(--mut); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; text-align: left; }
+.dept-list { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+.dept-row { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 6px; font-size: 10px; width: 100%; }
+.dept-rank { width: 12px; color: var(--mut); font-weight: 700; text-align: left; }
+.dept-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.dept-val { color: var(--text); font-weight: 700; text-align: left; }
 .lbi { display: flex; align-items: center; gap: 4px; padding: 3px 2px; border-radius: 4px; font-size: 10px; cursor: pointer; }
 .lbi:hover { background: rgba(0,0,0,.04); }
 .lbr { color: var(--mut); width: 16px; flex-shrink: 0; font-weight: 700; }
@@ -100,6 +109,14 @@ select:focus, input:focus { border-color: var(--acc); }
 .bdg-a { background: #FFF3CD; color: #856404; }
 .bdg-c { background: #FFE4E1; color: #c0392b; }
 .bdg-x { background: #FDECEA; color: #c0392b; }
+#psi-p { flex-direction: column; }
+#psi-nbody { flex: 1; display: flex; overflow: hidden; }
+#psi-cvs { flex: 1; position: relative; background: var(--bg); overflow: hidden; }
+#psi-cvs svg { width: 100%; height: 100%; }
+#psi-rp { flex-shrink: 0; width: 220px; background: var(--surf); border-left: 1px solid var(--bord);
+  display: flex; flex-direction: column; overflow-y: auto; padding: 10px; }
+#psi-rp h3 { font-size: 10px; font-weight: 700; color: var(--mut); text-transform: uppercase;
+  letter-spacing: .07em; margin-bottom: 6px; }
 #cfep-p { flex-direction: column; background: var(--bg); overflow: hidden; }
 .ctop { flex-shrink: 0; padding: 9px 18px 7px; background: var(--surf);
   border-bottom: 1px solid var(--bord); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -129,6 +146,7 @@ select:focus, input:focus { border-color: var(--acc); }
     <div class="tbar">
       <button class="tbtn on" id="tbnet"  onclick="switchTab('net')">🔗 Collaboration Network</button>
       <button class="tbtn"    id="tbcfep" onclick="switchTab('cfep')">🔬 CFEP Cluster Impact</button>
+      <button class="tbtn"    id="tbpsi"  onclick="switchTab('psi')">🌱 PSI Focus</button>
     </div>
   </div>
   <div class="tp on" id="net-p">
@@ -158,6 +176,16 @@ select:focus, input:focus { border-color: var(--acc); }
         <div id="lb">
           <h3 id="lbt">Top 10 all colleges</h3>
           <div id="lb-list"></div>
+          <div id="dept-panel">
+            <div class="dept-block">
+              <h4>Top inter-college depts</h4>
+              <div id="dept-inter" class="dept-list"></div>
+            </div>
+            <div class="dept-block">
+              <h4>Top same-college depts</h4>
+              <div id="dept-intra" class="dept-list"></div>
+            </div>
+          </div>
         </div>
         <button id="dlb" onclick="dlCSV()">&#8595; Download Network CSV</button>
       </div>
@@ -192,19 +220,38 @@ select:focus, input:focus { border-color: var(--acc); }
       </div>
     </div>
   </div>
+  <div class="tp" id="psi-p">
+    <div class="cbar">
+      <label style="font-size:11px;color:var(--mut);font-weight:600">Year:</label>
+      <select id="psi-yr-sel" onchange="renderPSI(+this.value)"></select>
+      <div class="spl" id="psi-sn"><b>-</b> PSI faculty</div>
+      <div class="spl" id="psi-se"><b>-</b> PSI collabs</div>
+      <div class="spl" id="psi-sc"><b>-</b> <span style="color:var(--cross)">cross-college</span></div>
+    </div>
+    <div id="psi-nbody">
+      <div id="psi-cvs"><svg id="psi-svg"></svg></div>
+      <div id="psi-rp">
+        <h3>PSI faculty by college</h3>
+        <div id="psi-leg"></div>
+        <div class="ldiv"></div>
+        <div class="hint">Faint gray = rest of IDR network (context)<br>Colored node = PSI-topic faculty (color = college)<br>Colored edge = PSI same-college collab<br>Red edge = PSI cross-college collab<br>Only co-authors who are already faculty nodes in the main network are shown.</div>
+      </div>
+    </div>
+  </div>
 </div>
 <div id="tt"></div>
 <script>
 const GRAPHS = __GRAPHS__;
 const LB     = __LB__;
 const CFEP   = __CFEP__;
+const PSI_NET = __PSI_NET__;
 const CCOL={
  "College of Engineering":"#0072B2","College of Sciences":"#009E73",
  "College of Agriculture and Life Sciences":"#E69F00",
  "College of Humanities and Social Sciences":"#CC79A7",
  "College of Veterinary Medicine":"#56B4E9","College of Education":"#D55E00",
  "Poole College of Management":"#F0E442","College of Natural Resources":"#9B59B6",
- "Wilson College of Textiles":"#1ABC9C","College of Design":"#E74C3C"
+ "Wilson College of Textiles":"#1ABC9C","College of Design":"#34495E"
 };
 const CSH={
  "College of Engineering":"Engineering","College of Sciences":"Sciences",
@@ -216,20 +263,85 @@ const CSH={
 };
 let CY=2006,simN=null,hidC=new Set(),sq="",cfOnly=false,selC=null;
 let nmap={},svgN=null,gE=null,gN=null,cfepMode="all";
+let PY=2021,simPsi=null,psiNmap={},pNodeSel=null,pEdgeSel=null;
 const tt=document.getElementById("tt");
-["yr-sel","yl-sel","yr-sel2"].forEach(id=>{
+function yearBlockLabel(startYear){
+ const endYear=Math.min(startYear+4,2025);
+ return startYear===endYear?String(startYear):startYear+"-"+endYear;
+}
+function getBlockYears(startYear){
+ const years=[];
+ for(let y=startYear;y<=Math.min(startYear+4,2025);y++) if(GRAPHS[y]) years.push(y);
+ return years;
+}
+function aggregateBlock(startYear){
+ const years=getBlockYears(startYear);
+ if(!years.length) return null;
+ const nodeMap=new Map();
+ const edgeMap=new Map();
+ let totalPapers=0;
+ years.forEach(yr=>{
+  const raw=GRAPHS[yr];
+  if(!raw) return;
+  totalPapers += Number(raw.tp || 0) || 0;
+  raw.n.forEach(n=>{
+   const id=n.id;
+   const existing=nodeMap.get(id);
+   if(!existing){
+    const baseName=n.name || n.nm || id;
+    const basePubs=Number(n.py||0);
+    const baseTotal=Number(n.pt||0);
+    const baseAsst=!!n.ia;
+    const baseCfep=!!n.cf;
+    nodeMap.set(id,{...n,uid:id,name:baseName,nm:n.nm || baseName,py:basePubs,pub_year:basePubs,pt:baseTotal,pub_total:baseTotal,ia:baseAsst,is_asst:baseAsst,cf:baseCfep,is_cfep:baseCfep});
+    return;
+   }
+   existing.py += Number(n.py||0);
+     existing.pub_year = existing.py;
+   existing.pt = Math.max(Number(existing.pt||0), Number(n.pt||0));
+     existing.pub_total = existing.pt;
+   existing.ia = existing.ia || !!n.ia;
+     existing.is_asst = existing.ia;
+   existing.cf = existing.cf || !!n.cf;
+     existing.is_cfep = existing.cf;
+   if(!existing.cc && n.cc) existing.cc = n.cc;
+   if(!existing.ttl && n.ttl) existing.ttl = n.ttl;
+   if(!existing.dept && n.dept) existing.dept = n.dept;
+     if(!existing.name && (n.name || n.nm)) existing.name = n.name || n.nm;
+     if(!existing.nm && (n.nm || n.name)) existing.nm = n.nm || n.name;
+  });
+  raw.e.forEach(e=>{
+   const s=e.s ?? e.source;
+   const t=e.t ?? e.target;
+   const key=s<t ? s+"-"+t : t+"-"+s;
+   let existing=edgeMap.get(key);
+   if(!existing){
+    existing={s:s,t:t,w:0,xc:false,p:[]};
+    edgeMap.set(key, existing);
+   }
+   existing.w += Number(e.w ?? 1) || 1;
+   existing.xc = existing.xc || !!(e.xc ?? e.cross_college);
+   const papers=(e.p ?? e.papers ?? []).filter(Boolean);
+   papers.forEach(p=>{if(existing.p.length<3 && !existing.p.includes(p)) existing.p.push(p);});
+  });
+ });
+ return {n:[...nodeMap.values()], e:[...edgeMap.values()], tp:totalPapers, years};
+}
+["yr-sel","yl-sel","yr-sel2","psi-yr-sel"].forEach(id=>{
  const s=document.getElementById(id);
- for(let y=2006;y<=2025;y++){const o=document.createElement("option");o.value=y;o.textContent=y;s.appendChild(o);}
+ for(let y=2006;y<=2025;y+=5){const o=document.createElement("option");o.value=y;o.textContent=yearBlockLabel(y);s.appendChild(o);}
 });
 document.getElementById("yr-sel").value=2006;
 document.getElementById("yl-sel").value=2006;
-document.getElementById("yr-sel2").value=2025;
+document.getElementById("yr-sel2").value=2021;
+document.getElementById("psi-yr-sel").value=2021;
 function switchTab(t){
  document.querySelectorAll(".tp").forEach(p=>p.classList.remove("on"));
  document.getElementById(t+"-p").classList.add("on");
  document.querySelectorAll(".tbtn").forEach(b=>b.classList.remove("on"));
  document.getElementById("tb"+t).classList.add("on");
  if(t==="cfep")renderCFEP();
+ if(t==="psi")renderPSI(PY);
 }
 function initSVG(){
  document.getElementById("svg").innerHTML="";
@@ -242,7 +354,25 @@ function initSVG(){
  });
  svgN.call(zoom).on("dblclick.zoom",null);
 }
-function buildLeg(rn){
+function deptShade(hex, dept){
+ if(!hex || !dept || !dept.trim()) return hex;
+ const base = d3.color(hex);
+ if(!base) return hex;
+ const key = dept.trim();
+ const hash = [...key].reduce((sum,ch)=>sum + ch.charCodeAt(0), 0);
+ const drift = ((hash % 7) - 3) * 0.012;
+ const hsl = d3.hsl(base);
+ const lightness = Math.min(0.96, Math.max(0.18, hsl.l + drift));
+ const sat = Math.min(0.94, Math.max(0.12, hsl.s + 0.02));
+ return d3.hsl(hsl.h, sat, lightness).formatHex();
+}
+function applyDeptShades(nodes){
+ nodes.forEach(n => {
+  if(n.col && (n.dept || "").trim()) n.clr = deptShade(n.clr || CCOL[n.col] || "#888888", n.dept);
+ });
+ return nodes;
+}
+function buildLeg(rn, raw){
  const cnt={};rn.forEach(n=>{cnt[n.col]=(cnt[n.col]||0)+1;});
  const el=document.getElementById("ll");el.innerHTML="";
  Object.entries(cnt).sort((a,b)=>b[1]-a[1]).forEach(([col,c])=>{
@@ -250,20 +380,70 @@ function buildLeg(rn){
   const r=document.createElement("div");
   r.className="lr"+(hidC.has(col)?" off":"")+(col===selC?" sel":"");
   r.innerHTML='<div class="ld" style="background:'+color+'"></div><span class="ll">'+(CSH[col]||col)+'</span><span class="lc">'+c+"</span>";
-  r.addEventListener("click",()=>{selC=selC===col?null:col;buildLeg(rn);applyF();buildLB(rn);});
-  r.addEventListener("dblclick",e=>{e.stopPropagation();hidC.has(col)?hidC.delete(col):hidC.add(col);buildLeg(rn);applyF();buildLB(rn);});
+  r.addEventListener("click",()=>{selC=selC===col?null:col;buildLeg(rn, raw);applyF();buildLB(raw);});
+  r.addEventListener("dblclick",e=>{e.stopPropagation();hidC.has(col)?hidC.delete(col):hidC.add(col);buildLeg(rn, raw);applyF();buildLB(raw);});
   el.appendChild(r);
  });
 }
-function buildLB(rn){
+function buildDeptBreakdown(raw, college){
+ const panel=document.getElementById("dept-panel");
+ const interEl=document.getElementById("dept-inter");
+ const intraEl=document.getElementById("dept-intra");
+ if(!college || !raw){ panel.classList.remove("show"); return; }
+ const nodeMap=new Map(raw.n.map(n=>[n.id,n]));
+ const inter=new Map(), intra=new Map();
+ raw.n.filter(n=>n.col===college).forEach(n=>{
+  const dept=(n.dept||"Other").trim() || "Other";
+  intra.set(dept, (intra.get(dept)||0) + (n.py || 0));
+ });
+ raw.e.forEach(e=>{
+  const s=nodeMap.get(e.s), t=nodeMap.get(e.t);
+  if(!s || !t) return;
+  const w=Number(e.w || e.weight || 1) || 1;
+  if(s.col===college && t.col!==college){
+   const dept=(s.dept||"Other").trim() || "Other";
+   inter.set(dept, (inter.get(dept)||0) + w);
+  }
+  if(t.col===college && s.col!==college){
+   const dept=(t.dept||"Other").trim() || "Other";
+   inter.set(dept, (inter.get(dept)||0) + w);
+  }
+  if(s.col===college && t.col===college){
+   const sd=(s.dept||"Other").trim() || "Other";
+   const td=(t.dept||"Other").trim() || "Other";
+   intra.set(sd, (intra.get(sd)||0) + (w || 1));
+   intra.set(td, (intra.get(td)||0) + (w || 1));
+  }
+ });
+ const interItems=[...inter.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3);
+ const intraItems=[...intra.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3);
+ const renderList=(container, items, type)=>{
+  container.innerHTML="";
+  if(!items.length){
+   container.innerHTML='<div class="dept-row"><span class="dept-name">No data</span></div>';
+   return;
+  }
+  items.forEach(([dept,val],i)=>{
+   const row=document.createElement("div");
+   row.className="dept-row";
+   row.innerHTML='<span class="dept-rank">'+(i+1)+'.</span><span class="dept-name" title="'+dept+'">'+dept+'</span><span class="dept-val">'+(type==="inter"?val:val.toLocaleString())+'</span>';
+   container.appendChild(row);
+  });
+ };
+ renderList(interEl, interItems, "inter");
+ renderList(intraEl, intraItems, "intra");
+ panel.classList.add("show");
+}
+function buildLB(raw){
  const title=document.getElementById("lbt"),list=document.getElementById("lb-list");
- const lbY=LB[String(CY)];if(!lbY){list.innerHTML="";return;}
+ if(!raw){list.innerHTML="";return;}
+ const yearLabel=yearBlockLabel(CY);
  let items;
- if(selC&&lbY[selC]){title.textContent="Top 10 - "+(CSH[selC]||selC);items=lbY[selC];}
- else{title.textContent="Top 10 all colleges";
-  const seen=new Set(),all=[];
-  Object.values(lbY).forEach(arr=>arr.forEach(x=>{if(!seen.has(x.uid)){seen.add(x.uid);all.push(x);}}));
-  items=all.sort((a,b)=>b.pub_year-a.pub_year).slice(0,10);
+ if(selC){title.textContent="Top 10 - "+(CSH[selC]||selC)+" ("+yearLabel+")";
+  items=raw.n.filter(n=>n.col===selC).sort((a,b)=>b.py-a.py).slice(0,10);
+ } else {
+  title.textContent="Top 10 all colleges ("+yearLabel+")";
+  items=[...raw.n].sort((a,b)=>b.py-a.py).slice(0,10);
  }
  list.innerHTML="";
  items.forEach((item,i)=>{
@@ -273,17 +453,44 @@ function buildLB(rn){
   div.addEventListener("mouseout",()=>{if(!document.querySelector(".lbi:hover"))clrHov();});
   list.appendChild(div);
  });
+ buildDeptBreakdown(raw, selC);
+}
+function buildDeptCenters(nodes, collegeCenters, W, H){
+ const byDept = new Map();
+ nodes.forEach(n => {
+  const key = n.col ? n.col + "::" + (n.dept || "__no_dept") : "__no_college";
+  if(!byDept.has(key))byDept.set(key,[]);
+  byDept.get(key).push(n);
+ });
+ const deptCenters = {};
+ const keys = [...byDept.keys()];
+ keys.forEach((key, idx) => {
+  const [college] = key.split("::");
+  const anchor = collegeCenters[college] || {x:W/2, y:H/2};
+  const count = Math.max(1, keys.length);
+  const angle = (2 * Math.PI * (idx / count)) - Math.PI / 2;
+  const ring = Math.min(W, H) * (0.08 + 0.035 * (idx % 4));
+  const x = anchor.x + ring * Math.cos(angle);
+  const y = anchor.y + ring * Math.sin(angle);
+  deptCenters[key] = {x, y};
+ });
+ return deptCenters;
+}
+function deptTarget(d, collegeCenters, deptCenters, W, H){
+ const key = d.col ? d.col + "::" + (d.dept || "__no_dept") : "__no_college";
+ return deptCenters[key] || (collegeCenters[d.col] || {x:W/2, y:H/2});
 }
 function render(yr){
  if(simN)simN.stop();
  initSVG();
- document.getElementById("ybg").textContent=yr;
- const raw=GRAPHS[yr];if(!raw){console.error("No data for year",yr);return;}
+ document.getElementById("ybg").textContent=yearBlockLabel(yr);
+ const raw=aggregateBlock(yr);if(!raw){console.error("No data for year block",yr);return;}
+ applyDeptShades(raw.n);
  let nodes=raw.n.filter(n=>!hidC.has(n.col));
  if(cfOnly)nodes=nodes.filter(n=>n.cf);
  const aids=new Set(nodes.map(n=>n.id));
  const edges=raw.e.filter(e=>aids.has(e.s)&&aids.has(e.t));
- buildLeg(raw.n);buildLB(raw.n);
+ buildLeg(raw.n, raw);buildLB(raw);
  nmap={};nodes.forEach(n=>{nmap[n.id]=n;});
  const xc=edges.filter(e=>e.xc).length;
  document.getElementById("sn").innerHTML="<b>"+nodes.length+"</b> faculty";
@@ -297,16 +504,33 @@ function render(yr){
  const cols=[...new Set(nodes.map(n=>n.col))];
  const cp={};
  cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.27;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
+ const deptCenters=buildDeptCenters(nodes, cp, W, H);
  const NC=nodes.map(n=>({...n,r:rSc(n.py||1)}));
- const EC=edges.map(e=>({...e}));
+ const EC=edges.map(e=>({
+  source: e.s ?? e.source,
+  target: e.t ?? e.target,
+  w: e.w ?? e.weight ?? 1,
+  weight: e.w ?? e.weight ?? 1,
+  xc: e.xc ?? e.cross_college,
+  xc: e.xc ?? e.cross_college,
+  cross_college: e.xc ?? e.cross_college,
+  papers: e.p ?? e.papers ?? []
+ }));
  simN=d3.forceSimulation(NC)
-  .force("link",d3.forceLink(EC).id(d=>d.id).distance(38).strength(0.2))
-  .force("charge",d3.forceManyBody().strength(-65))
-  .force("x",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.3))
-  .force("y",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.3))
-  .force("col",d3.forceCollide(d=>d.r+2)).alphaDecay(0.025).on("tick",tick);
+  .force("link",d3.forceLink(EC).id(d=>d.id)
+   .distance(d => {
+    const sameDept = (d.source && d.target) && ((d.source.dept || "") === (d.target.dept || "")) && (d.source.col === d.target.col);
+    return sameDept ? 18 : (d.xc ? 62 : 38);
+   }).strength(0.28))
+  .force("charge",d3.forceManyBody().strength(-110))
+  .force("collegeX",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.95))
+  .force("collegeY",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.95))
+  .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.42 : 0.08))
+  .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.42 : 0.08))
+  .force("col",d3.forceCollide(d=>d.r+4)).alphaDecay(0.026).on("tick",tick);
  const eSel=gE.selectAll(".edge").data(EC,d=>d.s+"-"+d.t)
   .join(en=>en.append("line").attr("class",d=>"edge "+(d.xc?"ecross":"same"))
+   .attr("stroke",d=>d.xc?"rgba(192,57,43,.9)":"rgba(0,0,0,.09)")
    .attr("stroke-width",d=>wSc(d.w)).on("mouseover",eHov).on("mouseout",()=>setTimeout(maybeClr,100)));
  const nSel=gN.selectAll(".nd").data(NC,d=>d.id)
   .join(en=>{
@@ -349,9 +573,10 @@ function nHov(ev,d){
 function eHov(ev,d){
  const si=d.source.id||d.s,ti=d.target.id||d.t;
  const sn=nmap[si],tn=nmap[ti];
- const pp=(d.p||[]).map(x=>'<div class="ttp">'+x+"</div>").join("");
+ const papers=(d.papers||d.p||[]).filter(Boolean);
+ const pp=papers.map(x=>'<div class="ttp">'+x+"</div>").join("");
  showTT('<div class="ttn">'+(sn?sn.nm:si)+" × "+(tn?tn.nm:ti)+"</div>"+(d.xc?'<span class="bdg bdg-x">Cross-college</span>':"")+
-  '<div class="ttr" style="margin-top:5px"><span>Shared papers</span><span>'+d.w+"</span></div>"+(pp?'<div class="ttpp"><div class="ttph">Papers</div>'+pp+"</div>":""),ev);
+  '<div class="ttr" style="margin-top:5px"><span>Shared papers</span><span>'+(d.weight ?? d.w ?? 0)+"</span></div>"+(pp?'<div class="ttpp"><div class="ttph">Papers</div>'+pp+"</div>":""),ev);
 }
 function maybeClr(){
  if(!document.querySelector(".nd:hover")&&!document.querySelector(".edge:hover")&&!document.querySelector(".lbi:hover"))clrHov();
@@ -390,7 +615,8 @@ function clrSrch(){sq="";document.getElementById("srch").value="";applyF();}
 function togCFEP(){cfOnly=!cfOnly;document.getElementById("bcfep").classList.toggle("on",cfOnly);render(CY);}
 function switchYear(y){CY=y;hidC.clear();selC=null;sq="";document.getElementById("srch").value="";render(y);}
 function dlCSV(){
- const raw=GRAPHS[CY];const ni={};raw.n.forEach(n=>{ni[n.id]=n;});
+ const raw=aggregateBlock(CY);if(!raw)return;
+ const ni={};raw.n.forEach(n=>{ni[n.id]=n;});
  const rows=["source_uid,source_name,source_college,target_uid,target_name,target_college,weight,cross_college,src_cfep,tgt_cfep"];
  raw.e.forEach(e=>{const s=ni[e.s]||{},t=ni[e.t]||{};
   rows.push([e.s,s.nm||"",s.col||"",e.t,t.nm||"",t.col||"",e.w,e.xc,!!s.cf,!!t.cf].map(v=>"\""+String(v).replace(/"/g,"\"\"")+"\",").join("").slice(0,-1));
@@ -412,13 +638,14 @@ function renderYC(side){
  const svgId="svg"+side,bodyId="ycb"+side,statId="ys"+side;
  const yr=+document.getElementById(selId).value;
  document.getElementById(svgId).innerHTML="";
- const raw=GRAPHS[yr];if(!raw)return;
+ const raw=aggregateBlock(yr);if(!raw)return;
+ applyDeptShades(raw.n);
  const cfepNodes=raw.n.filter(n=>n.cf);
  document.getElementById(statId).textContent=cfepNodes.length+" CFEP members";
  if(cfepNodes.length===0){
   d3.select("#"+svgId).append("text").attr("x","50%").attr("y","50%")
    .attr("text-anchor","middle").attr("dominant-baseline","central")
-   .attr("fill","#aaa").attr("font-size",13).text("No CFEP members in "+yr);
+   .attr("fill","#aaa").attr("font-size",13).text("No CFEP members in "+yearBlockLabel(yr));
   return;
  }
  let nodes=cfepMode==="cfep"?cfepNodes:raw.n;
@@ -433,20 +660,34 @@ function renderYC(side){
  const rSc=d3.scaleSqrt().domain([Math.max(1,d3.min(pv)||1),Math.max(2,d3.max(pv)||2)]).range([3,15]);
  const cols=[...new Set(nodes.map(n=>n.col))];const cp={};
  cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.3;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
- const NC=nodes.map(n=>({...n,r:rSc(Math.max(n.py,1))}));const EC=edges.map(e=>({...e}));
+ const deptCenters=buildDeptCenters(nodes, cp, W, H);
+ const NC=nodes.map(n=>({...n,r:rSc(Math.max(n.py,1))}));
+ const EC=edges.map(e=>({
+  source: e.s ?? e.source,
+  target: e.t ?? e.target,
+  weight: e.w ?? 1,
+  cross_college: e.xc ?? e.cross_college,
+  papers: e.p ?? e.papers ?? []
+ }));
  const sim=d3.forceSimulation(NC)
-  .force("link",d3.forceLink(EC).id(d=>d.id).distance(30).strength(0.2))
-  .force("charge",d3.forceManyBody().strength(-50))
-  .force("x",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.28))
-  .force("y",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.28))
-  .force("col",d3.forceCollide(d=>d.r+2)).alphaDecay(0.03);
+  .force("link",d3.forceLink(EC).id(d=>d.id)
+   .distance(d => {
+    const sameDept = (d.source && d.target) && ((d.source.dept || "") === (d.target.dept || "")) && (d.source.col === d.target.col);
+    return sameDept ? 18 : (d.xc ? 60 : 36);
+   }).strength(0.28))
+  .force("charge",d3.forceManyBody().strength(-115))
+  .force("collegeX",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.95))
+  .force("collegeY",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.95))
+  .force("deptX",d3.forceX(d=>deptTarget(d, cp, deptCenters, W, H).x).strength(d=>d.dept ? 0.42 : 0.08))
+  .force("deptY",d3.forceY(d=>deptTarget(d, cp, deptCenters, W, H).y).strength(d=>d.dept ? 0.42 : 0.08))
+  .force("col",d3.forceCollide(d=>d.r+4)).alphaDecay(0.03);
  const eSel=g.append("g").selectAll("line").data(EC).join("line")
   .attr("stroke",d=>d.xc?"rgba(192,57,43,.4)":"rgba(0,0,0,.09)").attr("stroke-width",d=>d.xc?1.5:1);
  const dom=document.getElementById(svgId);
  const nSel=g.append("g").selectAll("g").data(NC).join("g").style("cursor","pointer")
   .on("mouseover",function(ev,d){
    highlightBoth(d.id);
-   showTT('<div class="ttn">'+d.nm+'</div><div class="ttc" style="color:'+d.clr+'">'+(CSH[d.col]||d.col)+"</div>"+'<div class="ttr"><span>Pubs ('+yr+")</span><span>"+d.py+"</span></div>"+'<div class="ttr"><span>Total pubs</span><span>'+d.pt+"</span></div>"+(d.cf?'<span class="bdg bdg-c">&#9670; '+d.cc+"</span>":""),ev);
+   showTT('<div class="ttn">'+d.nm+'</div><div class="ttc" style="color:'+d.clr+'">'+(CSH[d.col]||d.col)+"</div>"+'<div class="ttr"><span>Pubs ('+yearBlockLabel(yr)+")</span><span>"+d.py+"</span></div>"+'<div class="ttr"><span>Total pubs</span><span>'+d.pt+"</span></div>"+(d.cf?'<span class="bdg bdg-c">&#9670; '+d.cc+"</span>":""),ev);
   }).on("mouseout",()=>{clearBoth();hideTT();});
  nSel.each(function(d){
   const el=d3.select(this);
@@ -509,7 +750,185 @@ function renderTrend(){
  svg.append("circle").attr("cx",iW-53).attr("cy",23).attr("r",4).attr("fill","#CC79A7");
  svg.append("text").attr("x",iW-44).attr("y",27).attr("font-size",8).attr("fill","#CC79A7").text("Active members");
 }
-window.addEventListener("resize",()=>{if(document.getElementById("net-p").classList.contains("on"))render(CY);});
+function aggregatePsiBlock(startYear){
+ const years=getBlockYears(startYear);
+ const nodeMap=new Map(),edgeMap=new Map();
+ years.forEach(yr=>{
+  const raw=PSI_NET[yr];if(!raw)return;
+  raw.n.forEach(n=>{
+   const ex=nodeMap.get(n.id);
+   if(!ex){nodeMap.set(n.id,{id:n.id,nm:n.nm,py:n.py});return;}
+   ex.py+=n.py||0;
+  });
+  raw.e.forEach(e=>{
+   const key=e.s<e.t?e.s+"|"+e.t:e.t+"|"+e.s;
+   let ex=edgeMap.get(key);
+   if(!ex){ex={s:e.s,t:e.t,w:0,p:[]};edgeMap.set(key,ex);}
+   ex.w+=e.w||1;
+   (e.p||[]).forEach(p=>{if(ex.p.length<3 && p && !ex.p.includes(p))ex.p.push(p);});
+  });
+ });
+ return {n:[...nodeMap.values()], e:[...edgeMap.values()]};
+}
+function buildPsiLeg(psiNodes){
+ const cnt={};psiNodes.forEach(n=>{cnt[n.col]=(cnt[n.col]||0)+1;});
+ const el=document.getElementById("psi-leg");el.innerHTML="";
+ const entries=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+ if(!entries.length){el.innerHTML='<div class="hint">No PSI collaborations recorded in this period.</div>';return;}
+ entries.forEach(([col,c])=>{
+  const color=CCOL[col]||"#888";
+  const r=document.createElement("div");r.className="lr";
+  r.innerHTML='<div class="ld" style="background:'+color+'"></div><span class="ll">'+(CSH[col]||col)+'</span><span class="lc">'+c+"</span>";
+  el.appendChild(r);
+ });
+}
+function dsP(e,d){if(!e.active)simPsi.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;}
+function ddP(e,d){d.fx=e.x;d.fy=e.y;}
+function deP(e,d){if(!e.active)simPsi.alphaTarget(0);d.fx=null;d.fy=null;}
+function psiHilNode(uid){
+ const nb=new Set([uid]);
+ pEdgeSel.each(function(e){
+  const si=e.source.id||e.source,ti=e.target.id||e.target;
+  if(si===uid||ti===uid){nb.add(si);nb.add(ti);}
+ });
+ pNodeSel.style("opacity",n=>nb.has(n.id)?1:0.04);
+ pEdgeSel.style("opacity",e=>{
+  const si=e.source.id||e.source,ti=e.target.id||e.target;
+  return (si===uid||ti===uid)?1:0.03;
+ }).style("stroke-width",e=>{
+  const si=e.source.id||e.source,ti=e.target.id||e.target;
+  return (si===uid||ti===uid)?Math.max(3,e.baseW||2):null;
+ });
+}
+function psiClrHov(){
+ if(pNodeSel)pNodeSel.style("opacity",d=>d.baseOp).style("stroke-width",null);
+ if(pEdgeSel)pEdgeSel.style("opacity",d=>d.baseEdgeOp).style("stroke-width",null);
+ hideTT();
+}
+function psiMaybeClr(){
+ if(!document.querySelector(".pnd:hover")&&!document.querySelector(".pedge:hover"))psiClrHov();
+}
+function psiNodeHover(ev,d){
+ psiHilNode(d.id);
+ showTT('<div class="ttn">'+d.nm+'</div><div class="ttc" style="color:'+d.clr+'">'+(CSH[d.col]||d.col)+"</div>"+(d.dept?'<div class="ttd">'+d.dept+"</div>":"")+
+  '<div class="ttr"><span>Pubs ('+yearBlockLabel(PY)+")</span><span>"+d.py+"</span></div>"+'<div class="ttr"><span>Total pubs</span><span>'+d.pt+"</span></div>"+
+  (d.ps?'<div class="ttr"><span>PSI papers ('+yearBlockLabel(PY)+")</span><span>"+(d.psiPy||0)+"</span></div>":"")+
+  (d.ps?'<span class="bdg" style="background:#E3F2E8;color:#1e7a4c">PSI collaborator</span>':""),ev);
+}
+function psiEdgeHover(ev,d){
+ const si=d.source.id||d.source,ti=d.target.id||d.target;
+ const sn=psiNmap[si],tn=psiNmap[ti];
+ const papers=(d.papers||[]).filter(Boolean);
+ const pp=papers.map(x=>'<div class="ttp">'+x+"</div>").join("");
+ const badge=d.psi?(d.xc?'<span class="bdg bdg-x">PSI cross-college</span>':'<span class="bdg" style="background:#E3F2E8;color:#1e7a4c">PSI same-college</span>'):"";
+ showTT('<div class="ttn">'+(sn?sn.nm:si)+" × "+(tn?tn.nm:ti)+"</div>"+badge+
+  '<div class="ttr" style="margin-top:5px"><span>Shared papers</span><span>'+(d.w ?? 0)+"</span></div>"+(pp?'<div class="ttpp"><div class="ttph">Papers</div>'+pp+"</div>":""),ev);
+}
+function renderPSI(yr){
+ PY=yr;
+ if(simPsi)simPsi.stop();
+ const svgEl=document.getElementById("psi-svg");
+ svgEl.innerHTML="";
+ const svg=d3.select(svgEl);
+ const gR=svg.append("g");
+ const gE2=gR.append("g"),gN2=gR.append("g");
+ const zoom=d3.zoom().scaleExtent([0.03,14]).on("zoom",e=>gR.attr("transform",e.transform));
+ svg.call(zoom).on("dblclick.zoom",null);
+ const raw=aggregateBlock(yr);if(!raw){console.error("No data for year block",yr);return;}
+ const psiRaw=aggregatePsiBlock(yr);
+ const activeIds=new Set(raw.n.map(n=>n.id));
+ const psiPyMap={};psiRaw.n.forEach(n=>{if(activeIds.has(n.id))psiPyMap[n.id]=n.py;});
+ const psiIdSet=new Set(Object.keys(psiPyMap));
+ const nodes=raw.n.map(n=>({...n, ps:psiIdSet.has(n.id), psiPy:psiPyMap[n.id]||0}));
+ psiNmap={};nodes.forEach(n=>{psiNmap[n.id]=n;});
+ const psiNodes=nodes.filter(n=>n.ps);
+ // merge background edges with PSI-tagged co-authorships — a person only
+ // counts as PSI if they're already an active node in this block's real
+ // network (no external roster, no "unknown college" bucket)
+ const edgeMap=new Map();
+ raw.e.forEach(e=>{
+  const s=e.s??e.source,t=e.t??e.target;
+  const key=s<t?s+"|"+t:t+"|"+s;
+  edgeMap.set(key,{source:s,target:t,w:e.w??e.weight??1,xc:!!(e.xc??e.cross_college),psi:false,papers:e.p??e.papers??[]});
+ });
+ psiRaw.e.forEach(e=>{
+  const s=e.s,t=e.t;
+  if(!activeIds.has(s)||!activeIds.has(t))return;
+  const key=s<t?s+"|"+t:t+"|"+s;
+  const sn=psiNmap[s],tn=psiNmap[t];
+  const xc=sn.col!==tn.col;
+  const ex=edgeMap.get(key);
+  if(ex){ex.psi=true;ex.w=e.w;ex.xc=xc;ex.papers=e.p;}
+  else edgeMap.set(key,{source:s,target:t,w:e.w,xc:xc,psi:true,papers:e.p});
+ });
+ const edges=[...edgeMap.values()];
+ const psiEdgesOnly=edges.filter(e=>e.psi);
+ const psiCross=psiEdgesOnly.filter(e=>e.xc).length;
+ document.getElementById("psi-sn").innerHTML="<b>"+psiNodes.length+"</b> PSI faculty";
+ document.getElementById("psi-se").innerHTML="<b>"+psiEdgesOnly.length+"</b> PSI collabs";
+ document.getElementById("psi-sc").innerHTML='<b>'+psiCross+'</b> <span style="color:var(--cross)">cross-college</span>';
+ buildPsiLeg(psiNodes);
+ const W=document.getElementById("psi-cvs").clientWidth,H=document.getElementById("psi-cvs").clientHeight;
+ const pv=nodes.map(n=>n.py);
+ const rSc=d3.scaleSqrt().domain([Math.max(1,d3.min(pv)||1),Math.max(2,d3.max(pv)||2)]).range([3,20]);
+ const wSc=d3.scaleLinear().domain([1,Math.max(2,d3.max(edges.map(e=>e.w))||2)]).range([1,5]);
+ const cols=[...new Set(nodes.map(n=>n.col))];
+ const cp={};
+ cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.3;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
+ const deptCenters=buildDeptCenters(nodes,cp,W,H);
+ const NC=nodes.map(n=>({...n,r:rSc(n.py||1),baseOp:n.ps?1:0.35}))
+  .sort((a,b)=>(a.ps===b.ps)?0:(a.ps?1:-1));
+ const EC=edges.map(e=>{
+  let edgeColor="rgba(0,0,0,.06)",edgeOp=0.9;
+  if(e.psi){
+   const sn=psiNmap[e.source],tn=psiNmap[e.target];
+   edgeColor = e.xc ? "#c0392b" : (sn.clr||"#888");
+   edgeOp=0.95;
+  }
+  return {...e, edgeColor:edgeColor, baseEdgeOp:edgeOp, baseW:e.psi?wSc(e.w):1};
+ }).sort((a,b)=>(a.psi===b.psi)?0:(a.psi?1:-1));
+ simPsi=d3.forceSimulation(NC)
+  .force("link",d3.forceLink(EC).id(d=>d.id)
+   .distance(d=>{
+    const sameDept=(d.source&&d.target)&&((d.source.dept||"")===(d.target.dept||""))&&(d.source.col===d.target.col);
+    return sameDept?18:(d.xc?62:38);
+   }).strength(0.28))
+  .force("charge",d3.forceManyBody().strength(-110))
+  .force("collegeX",d3.forceX(d=>(cp[d.col]||{x:W/2}).x).strength(0.95))
+  .force("collegeY",d3.forceY(d=>(cp[d.col]||{y:H/2}).y).strength(0.95))
+  .force("deptX",d3.forceX(d=>deptTarget(d,cp,deptCenters,W,H).x).strength(d=>d.dept?0.42:0.08))
+  .force("deptY",d3.forceY(d=>deptTarget(d,cp,deptCenters,W,H).y).strength(d=>d.dept?0.42:0.08))
+  .force("col",d3.forceCollide(d=>d.r+4)).alphaDecay(0.026).on("tick",tick);
+ const eSel=gE2.selectAll(".pedge").data(EC,(d,i)=>i)
+  .join(en=>en.append("line").attr("class","pedge")
+   .attr("stroke",d=>d.edgeColor).attr("stroke-width",d=>d.baseW).style("opacity",d=>d.baseEdgeOp)
+   .on("mouseover",psiEdgeHover).on("mouseout",()=>setTimeout(psiMaybeClr,100)));
+ const nSel=gN2.selectAll(".pnd").data(NC,d=>d.id)
+  .join(en=>{
+   const g=en.append("g").attr("class","pnd").style("opacity",d=>d.baseOp).style("cursor","pointer")
+    .call(d3.drag().on("start",dsP).on("drag",ddP).on("end",deP))
+    .on("mouseover",psiNodeHover).on("mouseout",()=>setTimeout(psiMaybeClr,100));
+   g.each(function(d){
+    const el=d3.select(this);
+    if(d.ps){
+     el.append("circle").attr("r",d.r+3).attr("fill","none").attr("stroke","#fff").attr("stroke-width",2);
+     el.append("circle").attr("r",d.r).attr("fill",d.clr).attr("stroke","rgba(0,0,0,.25)").attr("stroke-width",1);
+    } else {
+     el.append("circle").attr("r",d.r).attr("fill","#a9a6a0").attr("stroke","rgba(255,255,255,.5)").attr("stroke-width",0.8);
+    }
+   });
+   return g;
+  });
+ pNodeSel=nSel;pEdgeSel=eSel;
+ function tick(){
+  eSel.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
+  nSel.attr("transform",d=>"translate("+(d.x||0)+","+(d.y||0)+")");
+ }
+}
+window.addEventListener("resize",()=>{
+ if(document.getElementById("net-p").classList.contains("on"))render(CY);
+ if(document.getElementById("psi-p").classList.contains("on"))renderPSI(PY);
+});
 render(2006);
 </script>
 </body>
