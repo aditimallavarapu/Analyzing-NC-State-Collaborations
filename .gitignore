@@ -4,3 +4,16 @@ publications_clean.csv
 publications_clean.csv
 faculty_authorship_long.csv
 faculty_clean.csv
+
+hazel_phase_id.sbatch
+clean/
+results/
+__pycache__/
+.DS_Store
+embeddings/
+topics/
+*.csv
+*.xlsx
+depts.txt
+PSI_missing_abstracts.py
+.env
