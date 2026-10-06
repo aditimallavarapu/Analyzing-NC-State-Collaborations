@@ -54,6 +54,9 @@ select:focus, input:focus { border-color: var(--acc); }
 .nd circle, .nd polygon { stroke: rgba(255,255,255,.65); stroke-width: 1.3; cursor: pointer; }
 .nd.dim circle, .nd.dim polygon { opacity: .06 !important; }
 .nd.hlt circle, .nd.hlt polygon { stroke: #fff; stroke-width: 2.5; }
+.nd.pin circle, .nd.pin polygon, .ond.pin circle, .ond.pin polygon { stroke: #F5A623; stroke-width: 3.5; }
+.nlbl, .onlbl { font-size: 10px; font-weight: 700; fill: var(--text); pointer-events: none;
+  paint-order: stroke; stroke: var(--surf); stroke-width: 3px; stroke-linejoin: round; }
 #rp { flex-shrink: 0; width: 235px; background: var(--surf); border-left: 1px solid var(--bord);
   display: flex; flex-direction: column; overflow: hidden; }
 #leg { padding: 10px 10px 4px; overflow-y: auto; flex-shrink: 0; max-height: 42%; }
@@ -185,6 +188,7 @@ select:focus, input:focus { border-color: var(--acc); }
         <button onclick="clrSrch()">&#x2715;</button>
       </div>
       <button class="btn" id="bcfep" onclick="togCFEP()">&#9670; CFEP only</button>
+      <button class="btn" onclick="screenshotMain()">&#128247; Screenshot</button>
       <div class="spl" id="sn"><b>-</b> faculty</div>
       <div class="spl" id="se"><b>-</b> collabs</div>
       <div class="spl" id="sc"><b>-</b> <span style="color:var(--cross)">cross-college</span></div>
@@ -270,6 +274,7 @@ select:focus, input:focus { border-color: var(--acc); }
   <div id="do-hdr">
     <h2 id="do-title">Department View</h2>
     <div class="spl" id="do-sn"><b>-</b> faculty</div>
+    <button class="btn" onclick="screenshotOverlay()">&#128247; Screenshot</button>
     <button id="do-close" onclick="closeDeptOverlay()">&#x2715; Close</button>
   </div>
   <div id="do-body">
@@ -305,10 +310,52 @@ const CSH={
  "Wilson College of Textiles":"Textiles","College of Design":"Design"
 };
 let CY=2006,simN=null,hidC=new Set(),sq="",cfOnly=false,selC=null;
+let pinnedIds=new Set(),curNC=[],gLb2=null,labelSelMain=null;
 let simOv=null,ovCollege=null,ovFocusDept=null,ovNmap={};
+let ovPinnedIds=new Set(),ovCurNC=[],ovGLbl=null,labelSelOv=null;
 let nmap={},svgN=null,gE=null,gN=null,cfepMode="all";
 let PY=2021,simPsi=null,psiNmap={},pNodeSel=null,pEdgeSel=null;
 const tt=document.getElementById("tt");
+function exportSvgAsPng(svgEl, filename){
+ const rect=svgEl.getBoundingClientRect();
+ const clone=svgEl.cloneNode(true);
+ const liveEls=svgEl.querySelectorAll("*"),cloneEls=clone.querySelectorAll("*");
+ const props=["opacity","stroke","stroke-width","fill","display","font-size","font-weight","stroke-dasharray","paint-order","stroke-linejoin","text-anchor"];
+ liveEls.forEach((el,i)=>{
+  const cs=getComputedStyle(el);
+  let s="";
+  props.forEach(p=>{const v=cs.getPropertyValue(p);if(v)s+=p+":"+v+";";});
+  const ce=cloneEls[i];
+  if(ce)ce.setAttribute("style",s);
+ });
+ clone.setAttribute("width",rect.width);
+ clone.setAttribute("height",rect.height);
+ clone.setAttribute("xmlns","http://www.w3.org/2000/svg");
+ const bg=document.createElementNS("http://www.w3.org/2000/svg","rect");
+ bg.setAttribute("width","100%");bg.setAttribute("height","100%");
+ bg.setAttribute("fill",getComputedStyle(document.body).backgroundColor||"#f0ede6");
+ clone.insertBefore(bg,clone.firstChild);
+ const svgStr=new XMLSerializer().serializeToString(clone);
+ const url=URL.createObjectURL(new Blob([svgStr],{type:"image/svg+xml;charset=utf-8"}));
+ const img=new Image();
+ img.onload=()=>{
+  const scale=2;
+  const canvas=document.createElement("canvas");
+  canvas.width=rect.width*scale;canvas.height=rect.height*scale;
+  const ctx=canvas.getContext("2d");
+  ctx.scale(scale,scale);
+  ctx.drawImage(img,0,0,rect.width,rect.height);
+  URL.revokeObjectURL(url);
+  canvas.toBlob(blob=>{
+   const a=document.createElement("a");
+   a.href=URL.createObjectURL(blob);
+   a.download=filename;
+   a.click();
+  });
+ };
+ img.onerror=()=>{URL.revokeObjectURL(url);alert("Screenshot failed to render.");};
+ img.src=url;
+}
 function yearBlockLabel(startYear){
  const endYear=Math.min(startYear+4,2025);
  return startYear===endYear?String(startYear):startYear+"-"+endYear;
@@ -391,12 +438,38 @@ function initSVG(){
  document.getElementById("svg").innerHTML="";
  svgN=d3.select("#svg");
  const gR=svgN.append("g").attr("id","gR");
- gE=gR.append("g");gN=gR.append("g");
+ gE=gR.append("g");gN=gR.append("g");gLb2=gR.append("g");
  const zoom=d3.zoom().scaleExtent([0.03,14]).on("zoom",e=>{
   gR.attr("transform",e.transform);
   if(e.transform.k<0.22)clrHov();
  });
  svgN.call(zoom).on("dblclick.zoom",null);
+ svgN.on("click",()=>{if(pinnedIds.size){pinnedIds.clear();hilSet();}});
+}
+function screenshotMain(){exportSvgAsPng(document.getElementById("svg"),"ncstate_network_"+CY+(pinnedIds.size?"_ego":"")+".png");}
+function clearLabels(){if(gLb2)gLb2.selectAll("*").remove();labelSelMain=null;}
+function drawLabels(idSet){
+ const data=curNC.filter(n=>idSet.has(n.id));
+ labelSelMain=gLb2.selectAll(".nlbl").data(data,d=>d.id)
+  .join(en=>en.append("text").attr("class","nlbl").attr("text-anchor","start"))
+  .text(d=>d.nm);
+}
+function hilSet(){
+ if(pinnedIds.size===0){clrHov();return;}
+ const nb=new Set(pinnedIds);
+ d3.selectAll(".edge").each(function(e){
+  const si=e.source.id||e.source,ti=e.target.id||e.target;
+  if(pinnedIds.has(si)||pinnedIds.has(ti)){nb.add(si);nb.add(ti);}
+ });
+ d3.selectAll(".nd").classed("dim",n=>!nb.has(n.id)).classed("pin",n=>pinnedIds.has(n.id));
+ d3.selectAll(".edge").classed("hi",function(e){const si=e.source.id||e.source,ti=e.target.id||e.target;return pinnedIds.has(si)||pinnedIds.has(ti);})
+  .classed("dim",function(e){const si=e.source.id||e.source,ti=e.target.id||e.target;return !(pinnedIds.has(si)||pinnedIds.has(ti));});
+ drawLabels(nb);
+}
+function nClick(ev,d){
+ ev.stopPropagation();
+ if(pinnedIds.has(d.id))pinnedIds.delete(d.id);else pinnedIds.add(d.id);
+ hilSet();
 }
 function deptShade(hex, dept){
  if(!hex || !dept || !dept.trim()) return hex;
@@ -499,7 +572,7 @@ function deptOverlayAnchors(deptNames, W, H){
 }
 function truncLabel(s, max){ return max>2 && s.length>max ? s.slice(0,max-1)+"…" : (max<=2?"":s); }
 function openDeptOverlay(raw, college, focusDept){
- ovCollege=college;ovFocusDept=focusDept;
+ ovCollege=college;ovFocusDept=focusDept;ovPinnedIds.clear();
  document.getElementById("do-title").textContent=(CSH[college]||college)+" — Department View";
  const full=computeDeptBreakdown(raw, college);
  renderDeptList(document.getElementById("do-inter"), full.inter, "inter", null);
@@ -514,15 +587,33 @@ function openDeptOverlay(raw, college, focusDept){
 function closeDeptOverlay(){
  document.getElementById("dept-overlay").classList.remove("show");
  if(simOv){simOv.stop();simOv=null;}
- ovCollege=null;ovFocusDept=null;
+ ovCollege=null;ovFocusDept=null;ovPinnedIds.clear();clearOvLabels();
 }
 function dsO(e,d){if(!e.active)simOv.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;}
 function ddO(e,d){d.fx=e.x;d.fy=e.y;}
 function deO(e,d){if(!e.active)simOv.alphaTarget(0);d.fx=null;d.fy=null;}
+function screenshotOverlay(){exportSvgAsPng(document.getElementById("do-svg"),"ncstate_"+(ovCollege||"college").replace(/\s+/g,"_")+"_dept_view"+(ovPinnedIds.size?"_ego":"")+".png");}
+function clearOvLabels(){if(ovGLbl)ovGLbl.selectAll("*").remove();labelSelOv=null;}
+function drawOvLabels(idSet){
+ const data=ovCurNC.filter(n=>idSet.has(n.id));
+ labelSelOv=ovGLbl.selectAll(".onlbl").data(data,d=>d.id)
+  .join(en=>en.append("text").attr("class","onlbl").attr("text-anchor","start"))
+  .text(d=>d.nm);
+}
+function ovNClick(ev,d){
+ ev.stopPropagation();
+ if(ovPinnedIds.has(d.id))ovPinnedIds.delete(d.id);else ovPinnedIds.add(d.id);
+ ovHilSet();
+}
 function ovEdgeTouches(e,uid){
  if(e.xc)return e.localId===uid;
  const si=e.source.id||e.source,ti=e.target.id||e.target;
  return si===uid||ti===uid;
+}
+function ovEdgeInSet(e,idSet){
+ if(e.xc)return idSet.has(e.localId);
+ const si=e.source.id||e.source,ti=e.target.id||e.target;
+ return idSet.has(si)||idSet.has(ti);
 }
 function ovHilNode(uid){
  const nb=new Set([uid]);
@@ -533,16 +624,31 @@ function ovHilNode(uid){
  d3.selectAll(".ond").classed("dim",n=>!nb.has(n.id));
  d3.selectAll(".oedge").classed("hi",e=>ovEdgeTouches(e,uid)).classed("dim",e=>!ovEdgeTouches(e,uid));
 }
+function ovHilSet(){
+ if(ovPinnedIds.size===0){ovClrHov();return;}
+ const nb=new Set(ovPinnedIds);
+ d3.selectAll(".oedge:not(.xc)").each(function(e){
+  const si=e.source.id||e.source,ti=e.target.id||e.target;
+  if(ovPinnedIds.has(si)||ovPinnedIds.has(ti)){nb.add(si);nb.add(ti);}
+ });
+ d3.selectAll(".ond").classed("dim",n=>!nb.has(n.id)).classed("pin",n=>ovPinnedIds.has(n.id));
+ d3.selectAll(".oedge").classed("hi",function(e){return ovEdgeInSet(e,ovPinnedIds);})
+  .classed("dim",function(e){return !ovEdgeInSet(e,ovPinnedIds);});
+ drawOvLabels(nb);
+}
 function ovClrHov(){
- d3.selectAll(".ond").classed("dim",false);
+ d3.selectAll(".ond").classed("dim",false).classed("pin",false);
  d3.selectAll(".oedge").classed("dim",false).classed("hi",false);
+ clearOvLabels();
  hideTT();
 }
 function ovMaybeClr(){
- if(!document.querySelector(".ond:hover")&&!document.querySelector(".oedge:hover"))ovClrHov();
+ if(document.querySelector(".ond:hover")||document.querySelector(".oedge:hover"))return;
+ if(ovPinnedIds.size){ovHilSet();hideTT();}
+ else ovClrHov();
 }
 function nHovOv(ev,d){
- ovHilNode(d.id);
+ if(ovPinnedIds.size===0)ovHilNode(d.id);
  showTT('<div class="ttn">'+d.nm+'</div><div class="ttc" style="color:'+d.clr+'">'+(CSH[d.col]||d.col)+"</div>"+(d.dept?'<div class="ttd">'+d.dept+"</div>":"")+
   '<div class="ttr"><span>Pubs ('+yearBlockLabel(CY)+")</span><span>"+d.py+"</span></div>"+'<div class="ttr"><span>Total pubs</span><span>'+d.pt+"</span></div>"+
   (d.ia?'<span class="bdg bdg-a">&#9733; Asst Prof</span>':"")+(d.cf?'<span class="bdg bdg-c">&#9670; CFEP: '+d.cc+"</span>":""),ev);
@@ -571,8 +677,10 @@ function renderDeptOverlayGraph(raw, college, focusDept){
  const svg=d3.select(svgEl);
  const gR=svg.append("g");
  const gX3=gR.append("g"),gLbl=gR.append("g"),gE3=gR.append("g"),gN3=gR.append("g");
+ ovGLbl=gR.append("g");
  const zoom=d3.zoom().scaleExtent([0.1,10]).on("zoom",e=>gR.attr("transform",e.transform));
  svg.call(zoom).on("dblclick.zoom",null);
+ svg.on("click",()=>{if(ovPinnedIds.size){ovPinnedIds.clear();ovHilSet();}});
  const rawNodes=raw.n.filter(n=>n.col===college);
  const ids=new Set(rawNodes.map(n=>n.id));
  const edges=raw.e.filter(e=>ids.has(e.s ?? e.source)&&ids.has(e.t ?? e.target));
@@ -594,6 +702,7 @@ function renderDeptOverlayGraph(raw, college, focusDept){
  const allW=[...edges.map(e=>e.w ?? e.weight ?? 1),...crossEdges.map(c=>c.w)];
  const wSc=d3.scaleLinear().domain([1,Math.max(2,d3.max(allW)||2)]).range([1,5]);
  const NC=rawNodes.map(n=>({...n,dept:(n.dept||"Other").trim()||"Other",r:rSc(n.py||1)}));
+ ovCurNC=NC;
  const EC=edges.map(e=>({source:e.s ?? e.source, target:e.t ?? e.target, w:e.w ?? e.weight ?? 1, papers:e.p ?? e.papers ?? []}));
  ovNmap={};NC.forEach(n=>{ovNmap[n.id]=n;});
  const deptNames=[...new Set(NC.map(n=>n.dept))].sort();
@@ -633,7 +742,7 @@ function renderDeptOverlayGraph(raw, college, focusDept){
    const g=en.append("g").attr("class","ond")
     .style("opacity",d=>!focusDept||d.dept===focusDept?1:0.35)
     .call(d3.drag().on("start",dsO).on("drag",ddO).on("end",deO))
-    .on("mouseover",nHovOv).on("mouseout",()=>setTimeout(ovMaybeClr,100));
+    .on("mouseover",nHovOv).on("mouseout",()=>setTimeout(ovMaybeClr,100)).on("click",ovNClick);
    g.each(function(d){
     const el=d3.select(this);
     const shape=d.cf
@@ -647,7 +756,9 @@ function renderDeptOverlayGraph(raw, college, focusDept){
   eSel.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
   xSel.attr("x1",d=>ovNmap[d.localId].x).attr("y1",d=>ovNmap[d.localId].y).attr("x2",d=>d.x2).attr("y2",d=>d.y2);
   nSel.attr("transform",d=>"translate("+(d.x||0)+","+(d.y||0)+")");
+  if(labelSelOv)labelSelOv.attr("x",d=>(d.x||0)+(d.r||6)+4).attr("y",d=>(d.y||0)+4);
  }
+ ovHilSet();
 }
 document.addEventListener("keydown",e=>{
  if(e.key==="Escape" && document.getElementById("dept-overlay").classList.contains("show")) closeDeptOverlay();
@@ -724,6 +835,7 @@ function render(yr){
  cols.forEach((c,i)=>{const a=(2*Math.PI*i/cols.length)-Math.PI/2,r=Math.min(W,H)*0.27;cp[c]={x:W/2+r*Math.cos(a),y:H/2+r*Math.sin(a)};});
  const deptCenters=buildDeptCenters(nodes, cp, W, H);
  const NC=nodes.map(n=>({...n,r:rSc(n.py||1)}));
+ curNC=NC;
  const EC=edges.map(e=>({
   source: e.s ?? e.source,
   target: e.t ?? e.target,
@@ -754,7 +866,7 @@ function render(yr){
   .join(en=>{
    const g=en.append("g").attr("class","nd")
     .call(d3.drag().on("start",ds).on("drag",dd).on("end",de))
-    .on("mouseover",nHov).on("mouseout",()=>setTimeout(maybeClr,100));
+    .on("mouseover",nHov).on("mouseout",()=>setTimeout(maybeClr,100)).on("click",nClick);
    g.each(function(d){
     const el=d3.select(this);
     if(d.cf)el.append("polygon").attr("fill",d.clr).attr("points","0,"+(-d.r*1.4)+" "+(d.r*1.1)+",0 0,"+(d.r*1.4)+" "+(-d.r*1.1)+",0");
@@ -765,8 +877,10 @@ function render(yr){
  function tick(){
   eSel.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
   nSel.attr("transform",d=>"translate("+(d.x||0)+","+(d.y||0)+")");
+  if(labelSelMain)labelSelMain.attr("x",d=>(d.x||0)+(d.r||6)+4).attr("y",d=>(d.y||0)+4);
  }
  applyF();
+ hilSet();
 }
 function ds(e,d){if(!e.active)simN.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;}
 function dd(e,d){d.fx=e.x;d.fy=e.y;}
@@ -782,7 +896,7 @@ function hilNode(uid){
   .classed("dim",e=>(e.source.id||e.source)!==uid&&(e.target.id||e.target)!==uid);
 }
 function nHov(ev,d){
- hilNode(d.id);
+ if(pinnedIds.size===0)hilNode(d.id);
  showTT('<div class="ttn">'+d.nm+'</div><div class="ttc" style="color:'+d.clr+'">'+(CSH[d.col]||d.col)+"</div>"+(d.dept?'<div class="ttd">'+d.dept+"</div>":"")+
   '<div class="ttr"><span>Pubs ('+CY+")</span><span>"+d.py+"</span></div>"+'<div class="ttr"><span>Total pubs</span><span>'+d.pt+"</span></div>"+
   (d.ttl?'<div class="ttr"><span>Title</span><span>'+d.ttl+"</span></div>":"")+
@@ -797,11 +911,14 @@ function eHov(ev,d){
   '<div class="ttr" style="margin-top:5px"><span>Shared papers</span><span>'+(d.weight ?? d.w ?? 0)+"</span></div>"+(pp?'<div class="ttpp"><div class="ttph">Papers</div>'+pp+"</div>":""),ev);
 }
 function maybeClr(){
- if(!document.querySelector(".nd:hover")&&!document.querySelector(".edge:hover")&&!document.querySelector(".lbi:hover"))clrHov();
+ if(document.querySelector(".nd:hover")||document.querySelector(".edge:hover")||document.querySelector(".lbi:hover"))return;
+ if(pinnedIds.size){hilSet();hideTT();}
+ else clrHov();
 }
 function clrHov(){
- d3.selectAll(".nd").classed("dim",false).classed("hlt",false);
+ d3.selectAll(".nd").classed("dim",false).classed("hlt",false).classed("pin",false);
  d3.selectAll(".edge").classed("dim",false).classed("hi",false);
+ clearLabels();
  hideTT();
 }
 function showTT(h,e){
@@ -830,8 +947,8 @@ function applyF(){
 }
 function onSrch(){sq=document.getElementById("srch").value;applyF();}
 function clrSrch(){sq="";document.getElementById("srch").value="";applyF();}
-function togCFEP(){cfOnly=!cfOnly;document.getElementById("bcfep").classList.toggle("on",cfOnly);render(CY);}
-function switchYear(y){CY=y;hidC.clear();selC=null;sq="";document.getElementById("srch").value="";render(y);}
+function togCFEP(){cfOnly=!cfOnly;pinnedIds.clear();document.getElementById("bcfep").classList.toggle("on",cfOnly);render(CY);}
+function switchYear(y){CY=y;hidC.clear();selC=null;sq="";pinnedIds.clear();document.getElementById("srch").value="";render(y);}
 function dlCSV(){
  const raw=aggregateBlock(CY);if(!raw)return;
  const ni={};raw.n.forEach(n=>{ni[n.id]=n;});
