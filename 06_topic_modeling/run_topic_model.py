@@ -39,6 +39,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo root: text_fix.py
+from text_fix import repair_columns
+
 # data on /rs1/researchers/a/amallav/IDR, code on /share/ftrscape/apethan
 # (both sbatch scripts export IDR_DATA_DIR to match)
 DEFAULT_DATA_DIR = os.environ.get("IDR_DATA_DIR", "/rs1/researchers/a/amallav/IDR")
@@ -168,13 +172,14 @@ def main(args: argparse.Namespace) -> None:
 
     embeddings, ids = load_embeddings_and_ids(args)
 
-    df = pd.read_csv(args.input, dtype={args.id_col: str})
+    df = pd.read_csv(args.input, dtype={args.id_col: str}, encoding="utf-8")
     for col in (args.id_col, args.title_col, args.abstract_col):
         if col not in df.columns:
             raise SystemExit(
                 f"Column '{col}' not found in {args.input}. "
                 f"Available columns: {list(df.columns)}"
             )
+    df = repair_columns(df, [args.title_col, args.abstract_col])
     if df[args.id_col].duplicated().any():
         raise SystemExit(f"--id-col '{args.id_col}' has duplicate values in "
                           f"{args.input} — it must uniquely identify each publication")
@@ -277,8 +282,8 @@ def main(args: argparse.Namespace) -> None:
                      "subtopics": "; ".join(subs["subtopic"])})
     topics_df = pd.DataFrame(rows)
 
-    doc_df.to_csv(outdir / f"doc_topics_{args.model}_{n_label}.csv", index=False)
-    topics_df.to_csv(outdir / f"topics_{args.model}_{n_label}.csv", index=False)
+    doc_df.to_csv(outdir / f"doc_topics_{args.model}_{n_label}.csv", index=False, encoding="utf-8")
+    topics_df.to_csv(outdir / f"topics_{args.model}_{n_label}.csv", index=False, encoding="utf-8")
 
     # ---- evaluation, at the topic level
     def topic_terms(t, n):
@@ -315,7 +320,7 @@ def main(args: argparse.Namespace) -> None:
            "coherence_cv": round(coherence_cv, 4),
            "topic_diversity": round(topic_diversity, 4)}
     comparison = outdir / "model_comparison.csv"
-    with open(comparison, "a+") as f:
+    with open(comparison, "a+", encoding="utf-8") as f:
         fcntl.flock(f, fcntl.LOCK_EX)
         f.seek(0)
         text = f.read()

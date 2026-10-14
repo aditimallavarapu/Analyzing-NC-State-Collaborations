@@ -26,6 +26,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from text_fix import repair_columns
+
 REAL_PUB_COLS = [
     "title", "authors", "nc_state_people","nc_state_faculty", "nc_state_faculty_active", "DOI", "PMID",
     "year", "url", "topics", "abstract", "openalex_cited_by_count",
@@ -81,8 +83,15 @@ def load_publications(path: str) -> tuple[pd.DataFrame, dict]:
         skiprows=4,
         usecols=range(len(REAL_PUB_COLS)),
         low_memory=False,
+        encoding="utf-8",
     )
     df.columns = REAL_PUB_COLS
+    # The export is double-encoded UTF-8 (e.g. "â\x80\x99" for "’"); repair it
+    # once here so every downstream step sees clean text.
+    df = repair_columns(
+        df, ["title", "authors", "nc_state_people", "nc_state_faculty",
+             "nc_state_faculty_active", "topics", "abstract"],
+    )
 
     n_total = len(df)
     year_numeric = pd.to_numeric(df["year"], errors="coerce")
@@ -205,7 +214,7 @@ def main():
 
 
     print("Loading faculty...", flush=True)
-    faculty = pd.read_csv(args.faculty)
+    faculty = pd.read_csv(args.faculty, encoding="utf-8")
     # sanity check: this file should already be faculty-only
     if "shib_role" in faculty.columns:
         n_before = len(faculty)
@@ -259,8 +268,8 @@ def main():
     n_pubs_after_allowlist = int(long_df["pub_id"].nunique())
     n_rows_after = len(long_df)
 
-    pubs.to_csv(outdir / "publications_clean.csv", index=False)
-    long_df.to_csv(outdir / "faculty_authorship_long.csv", index=False)
+    pubs.to_csv(outdir / "publications_clean.csv", index=False, encoding="utf-8")
+    long_df.to_csv(outdir / "faculty_authorship_long.csv", index=False, encoding="utf-8")
 
     n_colleges = long_df["college"].nunique()
     n_depts = long_df["department"].nunique()

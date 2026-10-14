@@ -30,7 +30,12 @@ import os
 import time
 from pathlib import Path
 
+import sys
+
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo root: text_fix.py
+from text_fix import repair_columns
 
 import judge_config as cfg
 
@@ -90,7 +95,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_pub_data() -> pd.DataFrame:
-    df = pd.read_csv(cfg.PUB_DATA_PATH)
+    df = pd.read_csv(cfg.PUB_DATA_PATH, encoding="utf-8")
+    df = repair_columns(df, [cfg.TITLE_COL, cfg.ABSTRACT_COL])
     if "Unnamed: 0" in df.columns:
         df = df.rename(columns={"Unnamed: 0": cfg.PUB_ID_COL})
     return df
@@ -175,7 +181,7 @@ def parse_judge_json(raw_text: str) -> dict:
 
 def update_model_comparison(model_name: str, nr_topics: str, model_summary: dict) -> None:
     comparison_path = Path(cfg.TOPICS_DIR) / "model_comparison.csv"
-    df = pd.read_csv(comparison_path, dtype={"nr_topics": str})
+    df = pd.read_csv(comparison_path, dtype={"nr_topics": str}, encoding="utf-8")
 
     mask = (df["model"] == model_name) & (df["nr_topics"] == str(nr_topics))
     if not mask.any():
@@ -189,7 +195,7 @@ def update_model_comparison(model_name: str, nr_topics: str, model_summary: dict
     df.loc[mask, "llm_label_quality"] = model_summary["mean_label_quality"]
     df.loc[mask, "llm_overall"] = model_summary["llm_overall"]
 
-    df.to_csv(comparison_path, index=False)
+    df.to_csv(comparison_path, index=False, encoding="utf-8")
     print(f"[info] updated {comparison_path} for model={model_name}, nr_topics={nr_topics}")
 
 
@@ -205,8 +211,8 @@ def process_model(model_name: str, nr_topics: str, pub_df: pd.DataFrame, dry_run
               f"{doc_topics_path} exists={doc_topics_path.exists()} — skipping")
         return
 
-    topics_df = pd.read_csv(topics_path)
-    doc_topics_df = pd.read_csv(doc_topics_path)
+    topics_df = pd.read_csv(topics_path, encoding="utf-8")
+    doc_topics_df = pd.read_csv(doc_topics_path, encoding="utf-8")
 
     topic_samples = build_topic_samples(topics_df, doc_topics_df, pub_df)
     for ts in topic_samples:
@@ -237,14 +243,14 @@ def process_model(model_name: str, nr_topics: str, pub_df: pd.DataFrame, dry_run
         return
 
     judge_topics_path = Path(cfg.TOPICS_DIR) / f"judge_topics_{model_name}.json"
-    with open(judge_topics_path, "w") as f:
-        json.dump(parsed, f, indent=2)
+    with open(judge_topics_path, "w", encoding="utf-8") as f:
+        json.dump(parsed, f, indent=2, ensure_ascii=False)
     print(f"[info] wrote {judge_topics_path}")
 
     model_summary = parsed.get("model_summary", {})
     judge_summary_path = Path(cfg.TOPICS_DIR) / f"judge_summary_{model_name}.json"
-    with open(judge_summary_path, "w") as f:
-        json.dump(model_summary, f, indent=2)
+    with open(judge_summary_path, "w", encoding="utf-8") as f:
+        json.dump(model_summary, f, indent=2, ensure_ascii=False)
     print(f"[info] wrote {judge_summary_path}")
 
     update_model_comparison(model_name, nr_topics, model_summary)

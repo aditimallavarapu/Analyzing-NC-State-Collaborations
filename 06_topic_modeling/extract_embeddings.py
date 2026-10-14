@@ -33,6 +33,10 @@ import pandas as pd
 from tqdm import tqdm
 
 from embedders import available_embedders, get_embedder
+import sys
+from pathlib import Path as _P
+sys.path.insert(0, str(_P(__file__).resolve().parent.parent))  # repo root: text_fix.py
+from text_fix import repair_columns
 
 # All input/output *data* (PSI_NC_affiliation.csv, embeddings, topics) lives under one
 # data directory, separate from this code/sbatch/logs checkout — code on
@@ -83,13 +87,15 @@ def main(args: argparse.Namespace) -> None:
 
     # dtype=str on the id column avoids pandas silently coercing ids to
     # int64 (which would drop e.g. leading zeros) before we ever see them
-    df = pd.read_csv(args.input, dtype={args.id_col: str})
+    df = pd.read_csv(args.input, dtype={args.id_col: str}, encoding="utf-8")
     for col in (args.id_col, args.title_col, args.abstract_col):
         if col not in df.columns:
             raise SystemExit(
                 f"Column '{col}' not found in {args.input}. "
                 f"Available columns: {list(df.columns)}"
             )
+    # repair double-encoded UTF-8 (idempotent; no-op on already-clean text)
+    df = repair_columns(df, [args.title_col, args.abstract_col])
     ids = df[args.id_col].astype(str).tolist()
     if len(set(ids)) != len(ids):
         raise SystemExit(f"--id-col '{args.id_col}' has duplicate values — it "
@@ -130,7 +136,7 @@ def main(args: argparse.Namespace) -> None:
         raise SystemExit("Embeddings contain NaNs — re-run with --no-fp16")
 
     np.save(emb_path, embeddings)
-    pd.DataFrame({"pub_id": ids}).to_csv(ids_path, index=False)
+    pd.DataFrame({"pub_id": ids}).to_csv(ids_path, index=False, encoding="utf-8")
     print(f"[info] wrote {emb_path} and {ids_path}")
     print("[done] run run_topic_model.py next")
 
