@@ -159,7 +159,7 @@ select:focus, input:focus { border-color: var(--acc); }
 #do-rp h3:first-child { margin-top: 0; }
 .do-dept-list { display: flex; flex-direction: column; gap: 3px; }
 .dept-row.focus { background: rgba(0,114,178,.12); border-radius: 5px; }
-.dlbl { font-size: 10px; font-weight: 700; fill: var(--mut); pointer-events: none; }
+.dlbl { font-size: 11px; font-weight: 700; fill: var(--mut); pointer-events: none; paint-order: stroke; stroke: var(--bg, #efece6); stroke-width: 3.5px; stroke-linejoin: round; }
 .oedge { stroke-width: 1; cursor: pointer; }
 .oedge.xc { stroke: rgba(192,57,43,.45); }
 .oedge.hi { stroke-width: 3; opacity: 1 !important; }
@@ -448,12 +448,7 @@ function initSVG(){
 }
 function screenshotMain(){exportSvgAsPng(document.getElementById("svg"),"ncstate_network_"+CY+(pinnedIds.size?"_ego":"")+".png");}
 function clearLabels(){if(gLb2)gLb2.selectAll("*").remove();labelSelMain=null;}
-function drawLabels(idSet){
- const data=curNC.filter(n=>idSet.has(n.id));
- labelSelMain=gLb2.selectAll(".nlbl").data(data,d=>d.id)
-  .join(en=>en.append("text").attr("class","nlbl").attr("text-anchor","start"))
-  .text(d=>d.nm);
-}
+function drawLabels(idSet){ clearLabels(); } // names hidden; details show in the hover card
 function hilSet(){
  if(pinnedIds.size===0){clrHov();return;}
  const nb=new Set(pinnedIds);
@@ -594,12 +589,7 @@ function ddO(e,d){d.fx=e.x;d.fy=e.y;}
 function deO(e,d){if(!e.active)simOv.alphaTarget(0);d.fx=null;d.fy=null;}
 function screenshotOverlay(){exportSvgAsPng(document.getElementById("do-svg"),"ncstate_"+(ovCollege||"college").replace(/\s+/g,"_")+"_dept_view"+(ovPinnedIds.size?"_ego":"")+".png");}
 function clearOvLabels(){if(ovGLbl)ovGLbl.selectAll("*").remove();labelSelOv=null;}
-function drawOvLabels(idSet){
- const data=ovCurNC.filter(n=>idSet.has(n.id));
- labelSelOv=ovGLbl.selectAll(".onlbl").data(data,d=>d.id)
-  .join(en=>en.append("text").attr("class","onlbl").attr("text-anchor","start"))
-  .text(d=>d.nm);
-}
+function drawOvLabels(idSet){ clearOvLabels(); } // names hidden; details show in the hover card
 function ovNClick(ev,d){
  ev.stopPropagation();
  if(ovPinnedIds.has(d.id))ovPinnedIds.delete(d.id);else ovPinnedIds.add(d.id);
@@ -695,11 +685,11 @@ function renderDeptOverlayGraph(raw, college, focusDept){
   if(!extNode||extNode.col===college)return;
   crossEdges.push({xc:true,localId,extCollege:extNode.col,extName:extNode.nm,w:e.w ?? e.weight ?? 1,papers:e.p ?? e.papers ?? []});
  });
- document.getElementById("do-sn").innerHTML="<b>"+rawNodes.length+"</b> faculty, <b>"+edges.length+"</b> within-college, <b>"+crossEdges.length+"</b> cross-college";
+ document.getElementById("do-sn").innerHTML="<b>"+rawNodes.length+"</b> faculty, <b>"+edges.length+"</b> within-college collaborations";
  const W=document.getElementById("do-cvs").clientWidth||800,H=document.getElementById("do-cvs").clientHeight||600;
  const pv=rawNodes.map(n=>n.py);
  const rSc=d3.scaleSqrt().domain([Math.max(1,d3.min(pv)||1),Math.max(2,d3.max(pv)||2)]).range([4,20]);
- const allW=[...edges.map(e=>e.w ?? e.weight ?? 1),...crossEdges.map(c=>c.w)];
+ const allW=edges.map(e=>e.w ?? e.weight ?? 1);
  const wSc=d3.scaleLinear().domain([1,Math.max(2,d3.max(allW)||2)]).range([1,5]);
  const NC=rawNodes.map(n=>({...n,dept:(n.dept||"Other").trim()||"Other",r:rSc(n.py||1)}));
  ovCurNC=NC;
@@ -707,6 +697,18 @@ function renderDeptOverlayGraph(raw, college, focusDept){
  ovNmap={};NC.forEach(n=>{ovNmap[n.id]=n;});
  const deptNames=[...new Set(NC.map(n=>n.dept))].sort();
  const anchors=deptOverlayAnchors(deptNames, W, H);
+ const baseHex=CCOL[college]||"#888888",baseHsl=d3.hsl(baseHex);
+ const deptClr={};
+ const nD=deptNames.length;
+ // three close shades of the college color, alternating around the ring
+ const SHADES=[{dl:-0.10,dh:-5},{dl:0,dh:0},{dl:0.11,dh:5}];
+ deptNames.forEach((dn,i)=>{
+  let k=i%3;
+  if(i===nD-1&&nD>3&&k===0)k=1; // keep last and first ring neighbours different
+  const sh=SHADES[k];
+  deptClr[dn]=d3.hsl(baseHsl.h+sh.dh,baseHsl.s,Math.min(0.8,Math.max(0.2,baseHsl.l+sh.dl))).formatHex();
+ });
+ NC.forEach(n=>{n.clr=deptClr[n.dept];});
  const extColleges=Object.keys(CCOL).filter(c=>c!==college);
  const farR=Math.max(W,H)*1.6;
  const extTarget={};
@@ -714,13 +716,25 @@ function renderDeptOverlayGraph(raw, college, focusDept){
   const a=(2*Math.PI*i/extColleges.length)-Math.PI/2;
   extTarget[c]={x:W/2+farR*Math.cos(a),y:H/2+farR*Math.sin(a)};
  });
- const CEC=crossEdges.filter(c=>extTarget[c.extCollege]).map(c=>({...c,x2:extTarget[c.extCollege].x,y2:extTarget[c.extCollege].y}));
- gLbl.selectAll(".dlbl").data(deptNames).join("text").attr("class","dlbl")
+ const CEC=[]; // cross-college edges intentionally not drawn in the college view
+ const lblSel=gLbl.selectAll(".dlbl").data(deptNames).join("text").attr("class","dlbl")
   .attr("text-anchor","middle")
   .attr("x",d=>W/2+(anchors[d].r+42)*Math.cos(anchors[d].a))
   .attr("y",d=>H/2+(anchors[d].r+42)*Math.sin(anchors[d].a))
-  .text(d=>truncLabel(d,26))
-  .append("title").text(d=>d);
+  .text(d=>truncLabel(d,26));
+ lblSel.append("title").text(d=>d);
+ gLbl.raise(); // draw labels above nodes
+ function placeLabels(){
+  const g={};
+  NC.forEach(n=>{(g[n.dept]=g[n.dept]||[]).push(n);});
+  lblSel.each(function(d){
+   const m=g[d]||[];if(!m.length)return;
+   const cx=d3.mean(m,n=>n.x||0),cy=d3.mean(m,n=>n.y||0);
+   const ext=d3.max(m,n=>Math.hypot((n.x||0)-cx,(n.y||0)-cy)+n.r);
+   let dx=cx-W/2,dy=cy-H/2;const len=Math.hypot(dx,dy)||1;dx/=len;dy/=len;
+   d3.select(this).attr("x",cx+dx*(ext+12)).attr("y",cy+dy*(ext+12)+4);
+  });
+ }
  simOv=d3.forceSimulation(NC)
   .force("link",d3.forceLink(EC).id(d=>d.id)
    .distance(d=>(d.source&&d.target&&d.source.dept===d.target.dept)?18:46).strength(0.28))
@@ -756,6 +770,7 @@ function renderDeptOverlayGraph(raw, college, focusDept){
   eSel.attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
   xSel.attr("x1",d=>ovNmap[d.localId].x).attr("y1",d=>ovNmap[d.localId].y).attr("x2",d=>d.x2).attr("y2",d=>d.y2);
   nSel.attr("transform",d=>"translate("+(d.x||0)+","+(d.y||0)+")");
+  placeLabels();
   if(labelSelOv)labelSelOv.attr("x",d=>(d.x||0)+(d.r||6)+4).attr("y",d=>(d.y||0)+4);
  }
  ovHilSet();
