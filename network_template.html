@@ -700,13 +700,17 @@ function renderDeptOverlayGraph(raw, college, focusDept){
  const baseHex=CCOL[college]||"#888888",baseHsl=d3.hsl(baseHex);
  const deptClr={};
  const nD=deptNames.length;
- // three close shades of the college color, alternating around the ring
- const SHADES=[{dl:-0.10,dh:-5},{dl:0,dh:0},{dl:0.11,dh:5}];
+ const gcd=(a,b)=>b?gcd(b,a%b):a;
+ let step=1;
+ if(nD>3){let best=1e9;for(let k=2;k<nD;k++){if(gcd(k,nD)===1&&Math.abs(k-nD*0.38)<best){best=Math.abs(k-nD*0.38);step=k;}}}
+ // every department gets its own close shade of the college colour; neighbours in the ring are spread apart
  deptNames.forEach((dn,i)=>{
-  let k=i%3;
-  if(i===nD-1&&nD>3&&k===0)k=1; // keep last and first ring neighbours different
-  const sh=SHADES[k];
-  deptClr[dn]=d3.hsl(baseHsl.h+sh.dh,baseHsl.s,Math.min(0.8,Math.max(0.2,baseHsl.l+sh.dl))).formatHex();
+  const rank=(i*step)%nD;
+  const t=nD>1?rank/(nD-1)-0.5:0; // -0.5..0.5
+  const h=baseHsl.h+(rank%2?6:-6);
+  const sat=Math.min(1,Math.max(0.2,baseHsl.s+((rank%3)-1)*0.07));
+  const l=Math.min(0.8,Math.max(0.2,baseHsl.l+t*0.34));
+  deptClr[dn]=d3.hsl(h,sat,l).formatHex();
  });
  NC.forEach(n=>{n.clr=deptClr[n.dept];});
  const extColleges=Object.keys(CCOL).filter(c=>c!==college);
