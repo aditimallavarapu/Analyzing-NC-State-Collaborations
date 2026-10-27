@@ -148,6 +148,10 @@ select:focus, input:focus { border-color: var(--acc); }
 #do-hdr .spl { flex-shrink: 0; }
 #do-close { font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 100px;
   border: 1.5px solid var(--bord); background: var(--surf); color: var(--mut); cursor: pointer; }
+.ego-close { position: absolute; top: 12px; right: 14px; z-index: 5; display: none; font-size: 12px; font-weight: 600;
+  padding: 5px 14px; border-radius: 100px; border: 1.5px solid var(--bord); background: var(--surf); color: var(--mut); cursor: pointer; }
+.ego-close.show { display: block; }
+.ego-close:hover { border-color: var(--cross); color: var(--cross); }
 #do-close:hover { border-color: var(--cross); color: var(--cross); }
 #do-body { flex: 1; display: flex; overflow: hidden; }
 #do-cvs { flex: 1; position: relative; background: var(--bg); overflow: hidden; }
@@ -195,7 +199,7 @@ select:focus, input:focus { border-color: var(--acc); }
       <div class="spl" id="sp"><b>-</b> papers</div>
     </div>
     <div id="nbody">
-      <div id="cvs"><svg id="svg"></svg><div id="ybg">2006</div></div>
+      <div id="cvs"><svg id="svg"></svg><button class="ego-close" id="ego-close" onclick="closeEgo()">&#x2715; Close ego view</button><div id="ybg">2006</div></div>
       <div id="rp">
         <div id="leg">
           <h3>Colleges <span style="font-weight:400;color:#ccc;font-size:8px">click=filter dbl=hide</span></h3>
@@ -278,7 +282,7 @@ select:focus, input:focus { border-color: var(--acc); }
     <button id="do-close" onclick="closeDeptOverlay()">&#x2715; Close</button>
   </div>
   <div id="do-body">
-    <div id="do-cvs"><svg id="do-svg"></svg></div>
+    <div id="do-cvs"><svg id="do-svg"></svg><button class="ego-close" id="ov-ego-close" onclick="closeOvEgo()">&#x2715; Close ego view</button></div>
     <div id="do-rp">
       <h3>Cross-college collabs by dept</h3>
       <div id="do-inter" class="do-dept-list"></div>
@@ -444,12 +448,15 @@ function initSVG(){
   if(e.transform.k<0.22)clrHov();
  });
  svgN.call(zoom).on("dblclick.zoom",null);
- svgN.on("click",()=>{if(pinnedIds.size){pinnedIds.clear();hilSet();}});
+ // clicking empty space no longer clears the ego selection; use the Close ego view button or Esc
 }
 function screenshotMain(){exportSvgAsPng(document.getElementById("svg"),"ncstate_network_"+CY+(pinnedIds.size?"_ego":"")+".png");}
 function clearLabels(){if(gLb2)gLb2.selectAll("*").remove();labelSelMain=null;}
 function drawLabels(idSet){ clearLabels(); } // names hidden; details show in the hover card
+function closeEgo(){pinnedIds.clear();hilSet();}
+function closeOvEgo(){ovPinnedIds.clear();ovHilSet();}
 function hilSet(){
+ document.getElementById("ego-close").classList.toggle("show",pinnedIds.size>0);
  if(pinnedIds.size===0){clrHov();return;}
  const nb=new Set(pinnedIds);
  d3.selectAll(".edge").each(function(e){
@@ -615,6 +622,7 @@ function ovHilNode(uid){
  d3.selectAll(".oedge").classed("hi",e=>ovEdgeTouches(e,uid)).classed("dim",e=>!ovEdgeTouches(e,uid));
 }
 function ovHilSet(){
+ document.getElementById("ov-ego-close").classList.toggle("show",ovPinnedIds.size>0);
  if(ovPinnedIds.size===0){ovClrHov();return;}
  const nb=new Set(ovPinnedIds);
  d3.selectAll(".oedge:not(.xc)").each(function(e){
@@ -670,7 +678,6 @@ function renderDeptOverlayGraph(raw, college, focusDept){
  ovGLbl=gR.append("g");
  const zoom=d3.zoom().scaleExtent([0.1,10]).on("zoom",e=>gR.attr("transform",e.transform));
  svg.call(zoom).on("dblclick.zoom",null);
- svg.on("click",()=>{if(ovPinnedIds.size){ovPinnedIds.clear();ovHilSet();}});
  const rawNodes=raw.n.filter(n=>n.col===college);
  const ids=new Set(rawNodes.map(n=>n.id));
  const edges=raw.e.filter(e=>ids.has(e.s ?? e.source)&&ids.has(e.t ?? e.target));
@@ -780,6 +787,10 @@ function renderDeptOverlayGraph(raw, college, focusDept){
  ovHilSet();
 }
 document.addEventListener("keydown",e=>{
+ if(e.key==="Escape"){
+  if(document.getElementById("dept-overlay").classList.contains("show")){if(ovPinnedIds.size){closeOvEgo();return;}}
+  else if(pinnedIds.size){closeEgo();return;}
+ }
  if(e.key==="Escape" && document.getElementById("dept-overlay").classList.contains("show")) closeDeptOverlay();
 });
 function buildLB(raw){
@@ -830,6 +841,7 @@ function deptTarget(d, collegeCenters, deptCenters, W, H){
 }
 function render(yr){
  if(simN)simN.stop();
+ document.getElementById("ego-close").classList.toggle("show",pinnedIds.size>0);
  initSVG();
  document.getElementById("ybg").textContent=yearBlockLabel(yr);
  const raw=aggregateBlock(yr);if(!raw){console.error("No data for year block",yr);return;}
