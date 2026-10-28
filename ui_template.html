@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NC State Research Networks</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root {
+  --bg: #121211;
+  --panel: rgba(30,30,28,.82);
+  --line: rgba(255,255,255,.09);
+  --text: #f0efec;
+  --muted: #a3a29a;
+  --faint: #6f6e68;
+  --accent: #f0efec;
+  --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; }
+#stage { position: fixed; inset: 0; }
+#stage svg { width: 100%; height: 100%; display: block; cursor: grab; }
+#stage svg:active { cursor: grabbing; }
+
+/* top bar */
+header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; padding: 18px 24px 4px; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(18,18,17,.96) 55%, rgba(18,18,17,0)); }
+header > * { pointer-events: auto; }
+.hl { display: inline-flex; flex-direction: column; gap: 14px; pointer-events: none; }
+.hl > * { pointer-events: auto; }
+.toprow { display: flex; align-items: center; gap: 24px; }
+.filters { display: flex; align-items: center; gap: 10px; }
+.filters label { font-size: 13px; font-weight: 500; color: var(--muted); }
+.brand { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.brand img { height: 28px; width: auto; display: block; border-radius: 2px; }
+.brand span { font-size: 16.5px; font-weight: 600; letter-spacing: -.01em; color: #fff; line-height: 28px; }
+nav { display: flex; align-items: center; gap: 6px; font-size: 13px; min-width: 0; }
+nav .sep { color: var(--faint); }
+nav button { background: none; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 4px 8px;
+  border-radius: 6px; white-space: nowrap; }
+nav button:hover { color: var(--text); background: rgba(255,255,255,.06); }
+nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spacer { flex: 1; }
+.select { position: relative; }
+.select select { appearance: none; -webkit-appearance: none; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px; padding: 6px 32px 6px 12px; font: 600 13px var(--font);
+  cursor: pointer; backdrop-filter: blur(10px); }
+.select select:hover { border-color: rgba(255,255,255,.22); }
+.select select:focus-visible { outline: 2px solid rgba(255,255,255,.4); outline-offset: 2px; }
+.select::after { content: ""; position: absolute; right: 12px; top: 50%; width: 6px; height: 6px; margin-top: -5px;
+  border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); pointer-events: none; }
+.select option { background: #1e1e1c; }
+
+/* search */
+.filters { flex-wrap: wrap; }
+.search { position: relative; }
+.search input { width: 230px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+  padding: 6px 12px 6px 34px; font: 500 13px var(--font); backdrop-filter: blur(10px); outline: none; }
+.search input::placeholder { color: var(--faint); }
+.search input:hover { border-color: rgba(255,255,255,.22); }
+.search input:focus { border-color: rgba(255,255,255,.4); }
+.search svg { position: absolute; left: 11px; top: 50%; margin-top: -7px; width: 14px; height: 14px; stroke: var(--faint); fill: none;
+  stroke-width: 2; stroke-linecap: round; pointer-events: none; z-index: 1; }
+#results { position: absolute; top: calc(100% + 6px); left: 0; width: 340px; max-height: 340px; overflow-y: auto; display: none;
+  background: rgba(30,30,28,.97); border: 1px solid var(--line); border-radius: 12px; padding: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45); backdrop-filter: blur(14px); }
+#results.show { display: block; }
+.res { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.res.on, .res:hover { background: rgba(255,255,255,.08); }
+.res i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.res div { min-width: 0; flex: 1; }
+.res b { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res small { display: block; font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.res em { font-style: normal; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.res mark { background: none; color: #fff; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(255,255,255,.35); }
+/* filters */
+.fwrap { position: relative; }
+.fbtn { display: flex; align-items: center; gap: 8px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 10px; padding: 6px 12px; font: 600 13px var(--font); cursor: pointer; backdrop-filter: blur(10px); }
+.fbtn:hover, .fbtn.open { border-color: rgba(255,255,255,.3); }
+.fbtn svg { width: 14px; height: 14px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; }
+.badge { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #fff; color: #121211;
+  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.badge.show { display: inline-block; }
+#fpop { position: absolute; top: calc(100% + 6px); left: 0; width: 330px; display: none; padding: 8px;
+  background: rgba(30,30,28,.97); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.45); backdrop-filter: blur(14px); }
+#fpop.show { display: block; }
+#fpop h3 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 6px 8px 8px; }
+.opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 8px; background: none; border: 0; border-radius: 10px;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.opt:hover { background: rgba(255,255,255,.06); }
+.opt div { flex: 1; min-width: 0; }
+.opt b { display: block; font-size: 13px; font-weight: 600; }
+.opt small { display: block; font-size: 11.5px; color: var(--faint); margin-top: 2px; line-height: 1.35; }
+.opt[disabled] { opacity: .45; cursor: not-allowed; background: none; }
+.sw { width: 34px; height: 20px; border-radius: 10px; background: rgba(255,255,255,.14); position: relative; flex-shrink: 0; transition: background .15s; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.opt.on .sw { background: #3987e5; }
+.opt.on .sw::after { transform: translateX(14px); }
+#chips { display: flex; gap: 6px; }
+.chip { display: flex; align-items: center; gap: 7px; background: rgba(255,255,255,.1); color: var(--text); border: 0; border-radius: 100px;
+  padding: 5px 10px 5px 12px; font: 600 12.5px var(--font); cursor: pointer; }
+.chip:hover { background: rgba(255,255,255,.17); }
+.chip span { color: var(--muted); font-size: 11px; }
+#empty { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 4; pointer-events: none; text-align: center;
+  color: var(--muted); font-size: 14px; line-height: 1.6; }
+#empty.show { display: flex; }
+#empty b { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+.none { padding: 10px; font-size: 12.5px; color: var(--muted); }
+
+/* legend */
+#legend { position: fixed; left: 24px; bottom: 24px; z-index: 10; width: 244px; padding: 14px 8px 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); }
+#legend h2 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 0 10px 8px; }
+.lg { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px; background: none; border: 0;
+  border-radius: 8px; color: var(--muted); font: 500 13px var(--font); cursor: pointer; text-align: left; transition: background .12s, color .12s, opacity .12s; }
+.lg:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.lg.on { color: var(--text); background: rgba(255,255,255,.08); }
+.lg.off { opacity: .35; }
+.lg i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.lg span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg b { font-weight: 500; font-variant-numeric: tabular-nums; color: var(--faint); font-size: 12px; }
+
+/* stats + hint */
+#stats { position: fixed; right: 24px; bottom: 24px; z-index: 10; display: flex; gap: 22px; padding: 12px 18px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); }
+#stats div { display: flex; flex-direction: column; gap: 2px; }
+#stats b { font-size: 20px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+#stats small { font-size: 11px; color: var(--muted); }
+#hint { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); font-size: 12px; color: var(--faint);
+  z-index: 5; white-space: nowrap; }
+
+/* svg bits */
+.edge { stroke: #fff; stroke-opacity: .07; fill: none; }
+.edge.hi { stroke-opacity: .55; }
+.edge.dim { stroke-opacity: .015; }
+.hit { stroke: transparent; stroke-width: 9px; fill: none; cursor: pointer; }
+.node { stroke: var(--bg); stroke-width: 1.2; transition: opacity .15s; cursor: pointer; }
+.node.dim { opacity: .1; }
+.node.pin { stroke: #fff; stroke-width: 2.5; }
+.glabel { font: 600 calc(13px / var(--k, 1)) var(--font); fill: var(--muted); text-anchor: middle; pointer-events: none;
+  paint-order: stroke; stroke: var(--bg); stroke-width: calc(4px / var(--k, 1)); stroke-linejoin: round; }
+
+/* tooltip */
+#tip { position: fixed; z-index: 20; pointer-events: none; display: none; min-width: 190px; max-width: 320px; padding: 12px 14px;
+  background: rgba(34,34,32,.96); border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+#tip .n { font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+#tip .c { display: flex; align-items: center; gap: 7px; margin-top: 4px; font-size: 12px; color: var(--muted); }
+#tip .c i { width: 8px; height: 8px; border-radius: 50%; }
+#tip .d { font-size: 12px; color: var(--faint); margin-top: 2px; }
+#tip .r { display: flex; justify-content: space-between; gap: 18px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--muted); }
+#tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+#tip .pair { display: flex; flex-direction: column; gap: 5px; }
+#tip .pair div { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; }
+#tip .pair i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+#tip .papers { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+#tip .papers h4 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 5px; }
+#tip .papers p { font-size: 12px; line-height: 1.4; color: var(--muted); padding: 3px 0; }
+
+@media (max-width: 760px) {
+  #hint, #stats { display: none; }
+  #legend { width: calc(100% - 32px); left: 16px; bottom: 16px; }
+  header { padding: 14px 16px 4px; }
+  .brand span { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="stage"><svg id="svg" role="img" aria-label="Faculty collaboration network"></svg></div>
+
+<header>
+  <div class="hl">
+    <div class="toprow">
+      <div class="brand"><img alt="NC State" src="data:image/png;base64,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"><span>Research Networks</span></div>
+      <nav id="crumbs" aria-label="Breadcrumb"></nav>
+    </div>
+    <div class="filters">
+      <label for="period">Period</label>
+      <div class="select"><select id="period" aria-label="Time period"></select></div>
+      <div class="search">
+        <svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+        <input id="q" type="text" placeholder="Search faculty" autocomplete="off" spellcheck="false" aria-label="Search faculty" aria-controls="results">
+        <div id="results" role="listbox"></div>
+      </div>
+      <div class="fwrap">
+        <button class="fbtn" id="fbtn" aria-haspopup="dialog" aria-expanded="false">
+          <svg viewBox="0 0 16 16"><path d="M2 4h12M4.5 8h7M7 12h2"/></svg>Filters<span class="badge" id="fcount"></span>
+        </button>
+        <div id="fpop" role="dialog" aria-label="Filters">
+          <h3>Show only</h3>
+          <button class="opt" id="opt-psi" role="switch" aria-checked="false">
+            <div><b>PSI collaborators</b><small>Faculty with Plant Sciences Initiative papers, and their PSI co-authorships. Data covers 2014 – 2025.</small></div><span class="sw"></span>
+          </button>
+          <button class="opt" disabled>
+            <div><b>CFEP members</b><small>Coming soon</small></div><span class="sw"></span>
+          </button>
+        </div>
+      </div>
+      <div id="chips"></div>
+    </div>
+  </div>
+</header>
+
+<aside id="legend"><h2>Colleges</h2><div id="lg"></div></aside>
+<div id="stats"><div><b id="s-n">–</b><small>faculty</small></div><div><b id="s-e">–</b><small>collaborations</small></div></div>
+<div id="hint">Scroll to zoom · drag to pan · click a college or person to explore · press / to search · Esc goes back</div>
+<div id="empty"><div><b id="empty-t"></b><span id="empty-s"></span></div></div>
+<div id="tip"></div>
+
+<script>
+const D = __DATA__;
+// One colour per college (fixed by entity, validated for the dark surface).
+const COL = ["#3987e5","#d95926","#199e70","#c98500","#d55181","#9085e9","#008300","#e66767","#1b98b0","#8f9a1c"];
+const PERIODS = {"2006":"2006 – 2010","2011":"2011 – 2015","2016":"2016 – 2020","2021":"2021 – 2025"};
+const state = { block: "2021", college: null, ego: null, psi: false };
+{ const q = new URLSearchParams(location.search);   // optional deep-link: ?college=0&ego=<id>&block=2016
+  if (q.has("college")) state.college = +q.get("college"); if (q.has("ego")) state.ego = q.get("ego"); if (q.has("block")) state.block = q.get("block"); if (q.has("psi")) state.psi = true; }
+
+const svg = d3.select("#svg");
+const root = svg.append("g");
+const gE = root.append("g"), gH = root.append("g"), gN = root.append("g"), gL = root.append("g");
+const zoom = d3.zoom().scaleExtent([0.1, 12]).on("zoom", e => { root.attr("transform", e.transform); svg.style("--k", e.transform.k); if (e.sourceEvent) userZoomed = true; });
+svg.call(zoom).on("dblclick.zoom", null);
+
+const tip = document.getElementById("tip");
+let sim = null, nodes = [], edges = [], byId = new Map(), adj = new Map(), groupKey = null, labelSel = null, groups = [];
+const prevPos = new Map();
+let ticks = 0, userZoomed = false;
+
+// ---------- controls ----------
+const sel = document.getElementById("period");
+Object.entries(PERIODS).forEach(([k, v]) => sel.add(new Option(v, k)));
+sel.value = state.block;
+sel.onchange = () => { state.block = sel.value; state.ego = null; closeResults(); render(); };
+
+function crumbs() {
+  const nav = document.getElementById("crumbs"); nav.innerHTML = "";
+  const items = [{ t: "All colleges", go: () => { state.college = null; state.ego = null; render(); } }];
+  if (state.college !== null) items.push({ t: D.colleges[state.college], go: () => { state.ego = null; render(); } });
+  if (state.ego) items.push({ t: byId.get(state.ego)?.nm || "", go: null });
+  items.forEach((it, i) => {
+    if (i) { const s = document.createElement("span"); s.className = "sep"; s.textContent = "›"; nav.appendChild(s); }
+    if (i === items.length - 1) { const h = document.createElement("span"); h.className = "here"; h.textContent = it.t; nav.appendChild(h); }
+    else { const b = document.createElement("button"); b.textContent = it.t; b.onclick = it.go; nav.appendChild(b); }
+  });
+}
+function legend(counts) {
+  const lg = document.getElementById("lg"); lg.innerHTML = "";
+  D.colleges.map((n, i) => i).sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).forEach(i => {
+    const b = document.createElement("button");
+    b.className = "lg" + (state.college === i ? " on" : state.college !== null ? " off" : "");
+    b.innerHTML = `<i style="background:${COL[i]}"></i><span>${D.colleges[i]}</span><b>${(counts[i] || 0).toLocaleString()}</b>`;
+    b.onclick = () => { state.college = state.college === i ? null : i; state.ego = null; render(); };
+    b.onmouseenter = () => spot(n => n.c === i);
+    b.onmouseleave = () => spot(null);
+    lg.appendChild(b);
+  });
+}
+// ---------- filters ----------
+const fbtn = document.getElementById("fbtn"), fpop = document.getElementById("fpop"), optPsi = document.getElementById("opt-psi");
+function filtersUI() {
+  const active = [state.psi && "PSI"].filter(Boolean);
+  const badge = document.getElementById("fcount");
+  badge.textContent = active.length; badge.classList.toggle("show", active.length > 0);
+  optPsi.classList.toggle("on", state.psi); optPsi.setAttribute("aria-checked", state.psi);
+  const chips = document.getElementById("chips"); chips.innerHTML = "";
+  if (state.psi) {
+    const c = document.createElement("button"); c.className = "chip"; c.innerHTML = "PSI only <span>✕</span>"; c.title = "Remove filter";
+    c.onclick = () => { state.psi = false; render(); }; chips.appendChild(c);
+  }
+}
+function setPop(open) { fpop.classList.toggle("show", open); fbtn.classList.toggle("open", open); fbtn.setAttribute("aria-expanded", open); }
+fbtn.onclick = e => { e.stopPropagation(); setPop(!fpop.classList.contains("show")); };
+fpop.onclick = e => e.stopPropagation();
+document.addEventListener("click", () => setPop(false));
+optPsi.onclick = () => { state.psi = !state.psi; state.ego = null; render(); };
+
+// ---------- search ----------
+const qIn = document.getElementById("q"), resBox = document.getElementById("results");
+const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const searchCache = {};
+let hits = [], hi = 0;
+function searchIndex() {
+  return searchCache[state.block] || (searchCache[state.block] = D.blocks[state.block].n.map(r => ({ r, k: norm(r[1]) })));
+}
+function runSearch() {
+  const t = norm(qIn.value.trim());
+  if (!t) { closeResults(); return; }
+  const words = t.split(/\s+/);
+  const psiSet = state.psi ? (D.psi[state.block] || { n: {} }).n : null;
+  hits = searchIndex().filter(x => (!psiSet || psiSet[x.r[0]] !== undefined) && words.every(w => x.k.includes(w)))
+    .map(x => ({ r: x.r, s: (x.k.startsWith(t) ? 0 : x.k.split(/\s+/).some(w => w.startsWith(words[0])) ? 1 : 2) }))
+    .sort((a, b) => a.s - b.s || b.r[4] - a.r[4]).slice(0, 8).map(x => x.r);
+  hi = 0; drawResults(t);
+}
+function drawResults(t) {
+  resBox.innerHTML = "";
+  if (!hits.length) { resBox.innerHTML = `<div class="none">No one matching “${esc(qIn.value.trim())}” in ${PERIODS[state.block]}</div>`; }
+  hits.forEach((r, i) => {
+    const el = document.createElement("div");
+    el.className = "res" + (i === hi ? " on" : ""); el.setAttribute("role", "option");
+    const name = esc(r[1]), m = norm(r[1]).indexOf(t.split(/\s+/)[0]);
+    const label = m >= 0 ? name.slice(0, m) + "<mark>" + name.slice(m, m + t.split(/\s+/)[0].length) + "</mark>" + name.slice(m + t.split(/\s+/)[0].length) : name;
+    el.innerHTML = `<i style="background:${COL[r[2]]}"></i><div><b>${label}</b><small>${esc(r[3] || D.colleges[r[2]])}</small></div><em>${r[4]} pubs</em>`;
+    el.onmousedown = e => { e.preventDefault(); pick(r); };
+    el.onmouseenter = () => { hi = i; [...resBox.children].forEach((c, j) => c.classList.toggle("on", j === i)); };
+    resBox.appendChild(el);
+  });
+  resBox.classList.add("show");
+}
+function closeResults() { resBox.classList.remove("show"); hits = []; }
+function pick(r) {
+  if (state.college !== null && state.college !== r[2]) state.college = null; // keep the college context only if they belong to it
+  state.ego = r[0];
+  qIn.value = ""; closeResults(); qIn.blur();
+  render();
+}
+qIn.addEventListener("input", runSearch);
+qIn.addEventListener("focus", () => { if (qIn.value.trim()) runSearch(); });
+qIn.addEventListener("blur", closeResults);
+qIn.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (!hits.length) return; e.preventDefault();
+    hi = (hi + (e.key === "ArrowDown" ? 1 : -1) + hits.length) % hits.length; drawResults(norm(qIn.value.trim()));
+    resBox.children[hi]?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") { if (hits[hi]) pick(hits[hi]); }
+  else if (e.key === "Escape") { e.stopPropagation(); if (resBox.classList.contains("show")) closeResults(); else { qIn.value = ""; qIn.blur(); } }
+});
+addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== qIn) { e.preventDefault(); qIn.focus(); } });
+{ const q = new URLSearchParams(location.search);   // test hook: ?search=jiang[&enter]
+  if (q.has("popup")) setTimeout(() => setPop(true), 60);   // test hook
+  if (q.has("tipedge")) setTimeout(() => { const el = gH.selectAll("line").nodes()[+q.get("tipedge")];
+    if (el) el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: 640, clientY: 300 })); }, 80);   // test hook
+  if (q.has("search")) setTimeout(() => { qIn.value = q.get("search"); runSearch(); if (q.has("enter") && hits[0]) pick(hits[0]); }, 50); }
+
+addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (fpop.classList.contains("show")) { setPop(false); return; }
+  if (state.ego) state.ego = null; else if (state.college !== null) state.college = null; else return;
+  render();
+});
+
+// ---------- helpers ----------
+function deptShades(deptNames, hex) {
+  const base = d3.hsl(hex), n = deptNames.length, out = {};
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  let step = 1;
+  if (n > 3) { let best = 1e9; for (let k = 2; k < n; k++) if (gcd(k, n) === 1 && Math.abs(k - n * .38) < best) { best = Math.abs(k - n * .38); step = k; } }
+  deptNames.forEach((d, i) => {
+    const rank = (i * step) % n, t = n > 1 ? rank / (n - 1) - .5 : 0;
+    out[d] = d3.hsl(base.h + (rank % 2 ? 6 : -6), Math.min(1, Math.max(.2, base.s + ((rank % 3) - 1) * .07)),
+      Math.min(.78, Math.max(.3, base.l + t * .34))).formatHex();
+  });
+  return out;
+}
+function showTip(ev, n) {
+  const deg = adj.get(n.id)?.size || 0;
+  tip.innerHTML = `<div class="n">${n.nm}</div><div class="c"><i style="background:${COL[n.c]}"></i>${D.colleges[n.c]}</div>` +
+    (n.d ? `<div class="d">${n.d}</div>` : "") +
+    `<div class="r"><span>${state.psi ? "PSI papers" : "Publications"}</span><b>${n.p}</b></div><div class="r" style="margin-top:6px;padding-top:6px"><span>Collaborators</span><b>${deg}</b></div>`;
+  tip.style.display = "block"; moveTip(ev);
+}
+function showEdgeTip(ev, e) {
+  const a = e.source, b = e.target;
+  const row = n => `<div><i style="background:${COL[n.c]}"></i>${n.nm}</div>`;
+  const papers = (e.papers || []).map(t => `<p>${t.length >= 70 ? t + "…" : t}</p>`).join("");
+  tip.innerHTML = `<div class="pair">${row(a)}${row(b)}</div>` +
+    `<div class="r"><span>Shared papers</span><b>${e.w}</b></div>` +
+    (papers ? `<div class="papers"><h4>Papers</h4>${papers}</div>` : "");
+  tip.style.display = "block"; moveTip(ev);
+}
+function moveTip(ev) {
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(innerWidth - w - 12, ev.clientX + 16) + "px";
+  tip.style.top = Math.min(innerHeight - h - 12, ev.clientY + 16) + "px";
+}
+const hideTip = () => tip.style.display = "none";
+
+// focus styling: set of ids to keep bright (null = all)
+function spot(pred) {
+  const bright = pred ? new Set(nodes.filter(pred).map(n => n.id)) : null;
+  gN.selectAll(".node").classed("dim", d => bright && !bright.has(d.id));
+  gE.selectAll(".edge").classed("dim", d => bright && !(bright.has(d.source.id) && bright.has(d.target.id)));
+}
+function applyEgo() {
+  if (!state.ego) { gN.selectAll(".node").classed("pin", false); spot(null); gE.selectAll(".edge").classed("hi", false); return; }
+  const nb = new Set([state.ego, ...(adj.get(state.ego) || [])]);
+  gN.selectAll(".node").classed("dim", d => !nb.has(d.id)).classed("pin", d => d.id === state.ego);
+  gE.selectAll(".edge").classed("hi", d => d.source.id === state.ego || d.target.id === state.ego)
+    .classed("dim", d => !(d.source.id === state.ego || d.target.id === state.ego));
+}
+
+// after hovering an edge, put its ego-mode highlight back
+function applyEgoEdge(d) { if (state.ego) gE.selectAll(".edge").filter(x => x === d).classed("hi", d.source.id === state.ego || d.target.id === state.ego); }
+
+// ---------- render ----------
+function render() {
+  if (sim) sim.stop();
+  nodes.forEach(n => prevPos.set(n.id, [n.x, n.y]));
+  const W = innerWidth, H = innerHeight, data = D.blocks[state.block];
+  const psi = state.psi ? (D.psi[state.block] || { n: {}, e: [] }) : null;   // PSI filter: people + PSI co-authorships only
+  const inPsi = r => !psi || psi.n[r[0]] !== undefined;
+  const inScope = r => (state.college === null || r[2] === state.college) && inPsi(r);
+  nodes = data.n.filter(inScope).map(r => {
+    const p = prevPos.get(r[0]);
+    return { id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], x: p ? p[0] : W / 2 + (Math.random() - .5) * 60, y: p ? p[1] : H / 2 + (Math.random() - .5) * 60 };
+  });
+  byId = new Map(nodes.map(n => [n.id, n]));
+  edges = (psi ? psi.e : data.e).filter(e => byId.has(e[0]) && byId.has(e[1])).map(e => ({ source: e[0], target: e[1], w: e[2], papers: e[3] || [], xc: byId.get(e[0]).c !== byId.get(e[1]).c }));
+  adj = new Map(); edges.forEach(e => { [[e.source, e.target], [e.target, e.source]].forEach(([a, b]) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); }); });
+  if (state.ego && !byId.has(state.ego)) state.ego = null;
+
+  const counts = {}; data.n.filter(inPsi).forEach(r => counts[r[2]] = (counts[r[2]] || 0) + 1);
+  if (!nodes.length) {            // nothing matches the current filters
+    [gE, gH, gN, gL].forEach(g => g.selectAll("*").remove());
+    document.getElementById("s-n").textContent = "0"; document.getElementById("s-e").textContent = "0";
+    document.getElementById("empty-t").textContent = psi ? "No PSI collaborators in " + PERIODS[state.block] : "Nothing to show";
+    document.getElementById("empty-s").textContent = psi ? "PSI data begins in 2014. Try a later period." : "";
+    document.getElementById("empty").classList.add("show");
+    legend(counts); crumbs(); filtersUI(); return;
+  }
+  document.getElementById("empty").classList.remove("show");
+
+  // colours
+  let clr;
+  if (state.college !== null) {
+    const depts = [...new Set(nodes.map(n => n.d))].sort(), sh = deptShades(depts, COL[state.college]);
+    clr = n => sh[n.d];
+  } else clr = n => COL[n.c];
+
+  // groups (clusters) + anchors
+  groupKey = state.college === null ? n => n.c : n => n.d;
+  const keys = [...new Set(nodes.map(groupKey))].sort((a, b) => String(a).localeCompare(String(b)));
+  const R = Math.min(W, H) * (state.college === null ? .44 : .38), anchor = new Map();
+  keys.forEach((k, i) => { const a = 2 * Math.PI * i / keys.length - Math.PI / 2; anchor.set(k, { x: W / 2 + R * Math.cos(a), y: H / 2 + R * Math.sin(a) }); });
+  groups = keys.map(k => ({ k, label: state.college === null ? D.colleges[k] : k, members: nodes.filter(n => groupKey(n) === k) }));
+
+  const rS = d3.scaleSqrt().domain([1, Math.max(2, d3.max(nodes, n => n.p))]).range([3.5, 20]);
+  nodes.forEach(n => n.r = rS(Math.max(1, n.p)));
+  const wS = d3.scaleLinear().domain([1, Math.max(2, d3.max(edges, e => e.w))]).range([.8, 4]);
+
+  // edges
+  const eSel = gE.selectAll("line").data(edges, d => d.source + "|" + d.target).join("line").attr("class", "edge").attr("stroke-width", d => wS(d.w));
+  // wide invisible hit-targets so thin lines are easy to hover
+  const hSel = gH.selectAll("line").data(edges, d => (d.source.id || d.source) + "|" + (d.target.id || d.target)).join("line").attr("class", "hit")
+    .on("mouseover", function (ev, d) { eSel.filter(x => x === d).classed("hi", true); showEdgeTip(ev, d); })
+    .on("mousemove", moveTip)
+    .on("mouseout", function (ev, d) { eSel.filter(x => x === d).classed("hi", false); applyEgoEdge(d); hideTip(); });
+  // nodes
+  const nSel = gN.selectAll("circle").data(nodes, d => d.id).join("circle").attr("class", "node")
+    .attr("r", d => d.r).attr("fill", clr)
+    .on("mouseover", (ev, d) => showTip(ev, d)).on("mousemove", moveTip).on("mouseout", hideTip)
+    .on("click", (ev, d) => { ev.stopPropagation(); state.ego = state.ego === d.id ? null : d.id; crumbs(); applyEgo(); })
+    .call(d3.drag().on("start", (e, d) => { if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on("end", (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = d.fy = null; }));
+  // group labels
+  labelSel = gL.selectAll("text").data(groups, d => d.k).join("text").attr("class", "glabel").text(d => d.label.length > 28 ? d.label.slice(0, 27) + "…" : d.label);
+  labelSel.selectAll("title").remove(); labelSel.append("title").text(d => d.label);
+
+  sim = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(edges).id(d => d.id).distance(d => d.xc ? 62 : (groupKey(d.source) === groupKey(d.target) ? 18 : 38)).strength(d => d.xc ? .03 : .28))
+    .force("charge", d3.forceManyBody().strength(-110))
+    .force("x", d3.forceX(d => anchor.get(groupKey(d)).x).strength(.9))
+    .force("y", d3.forceY(d => anchor.get(groupKey(d)).y).strength(.9))
+    .force("collide", d3.forceCollide(d => d.r + 3))
+    .alphaDecay(.03).on("tick", () => {
+      eSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+      hSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+      nSel.attr("cx", d => d.x).attr("cy", d => d.y);
+      placeLabels(W, H);
+      if (++ticks % 15 === 0) fit(W, H, 0);
+    })
+    .on("end", () => fit(W, H, 0));
+
+  ticks = 0; userZoomed = false;
+  // ?settle runs the layout to completion up-front (used for screenshots/tests)
+  if (new URLSearchParams(location.search).has("settle")) { sim.stop(); for (let i = 0; i < 320; i++) sim.tick(); sim.restart(); sim.alpha(0.001); fit(W, H, 0); }
+  legend(counts); crumbs(); applyEgo(); filtersUI();
+  document.getElementById("s-n").textContent = nodes.length.toLocaleString();
+  document.getElementById("s-e").textContent = edges.length.toLocaleString();
+}
+// scale + centre the network inside the free area (clear of the header, legend and stats)
+function fit(W, H, ms) {
+  if (userZoomed || !nodes.length) return;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  nodes.forEach(n => { x0 = Math.min(x0, n.x - n.r); x1 = Math.max(x1, n.x + n.r); y0 = Math.min(y0, n.y - n.r); y1 = Math.max(y1, n.y + n.r); });
+  labelSel.each(function () { const b = this.getBBox(); x0 = Math.min(x0, b.x); x1 = Math.max(x1, b.x + b.width); y0 = Math.min(y0, b.y); y1 = Math.max(y1, b.y + b.height); });
+  const padL = W > 760 ? 290 : 24, padR = 24, padT = 24, padB = W > 760 ? 90 : 300;
+  const aw = W - padL - padR, ah = H - padT - padB;
+  const k = Math.min(aw / (x1 - x0), ah / (y1 - y0), 1.4);
+  const tx = padL + (aw - k * (x1 - x0)) / 2 - k * x0, ty = padT + (ah - k * (y1 - y0)) / 2 - k * y0;
+  const t = d3.zoomIdentity.translate(tx, ty).scale(k);
+  (ms ? svg.transition().duration(ms) : svg).call(zoom.transform, t);
+}
+// labels sit just outside each cluster, away from the centre, so nodes never cover them
+function placeLabels(W, H) {
+  labelSel.each(function (g) {
+    const m = g.members; if (!m.length) return;
+    const cx = d3.mean(m, n => n.x || 0), cy = d3.mean(m, n => n.y || 0);
+    const ext = d3.max(m, n => Math.hypot((n.x || 0) - cx, (n.y || 0) - cy) + n.r);
+    let dx = cx - W / 2, dy = cy - H / 2; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+    d3.select(this).attr("x", cx + dx * (ext + 16)).attr("y", cy + dy * (ext + 16) + 4);
+  });
+}
+addEventListener("resize", () => render());
+render();
+</script>
+</body>
+</html>

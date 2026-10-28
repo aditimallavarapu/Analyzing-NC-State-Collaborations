@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NC State Collaborations — UI Mock</title>
+<title>NC State Research Networks</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
 :root {
@@ -23,12 +23,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #stage svg:active { cursor: grabbing; }
 
 /* top bar */
-header { position: fixed; top: 0; left: 0; right: 0; height: 64px; z-index: 10; display: flex; align-items: center;
-  gap: 24px; padding: 0 24px; pointer-events: none;
-  background: linear-gradient(to bottom, rgba(18,18,17,.95), rgba(18,18,17,0)); }
+header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; padding: 18px 24px 4px; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(18,18,17,.96) 55%, rgba(18,18,17,0)); }
 header > * { pointer-events: auto; }
-.brand { font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; }
-.brand span { color: var(--muted); font-weight: 500; }
+.hl { display: inline-flex; flex-direction: column; gap: 14px; pointer-events: none; }
+.hl > * { pointer-events: auto; }
+.toprow { display: flex; align-items: center; gap: 24px; }
+.filters { display: flex; align-items: center; gap: 10px; }
+.filters label { font-size: 13px; font-weight: 500; color: var(--muted); }
+.brand { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.brand img { height: 28px; width: auto; display: block; border-radius: 2px; }
+.brand span { font-size: 16.5px; font-weight: 600; letter-spacing: -.01em; color: #fff; line-height: 28px; }
 nav { display: flex; align-items: center; gap: 6px; font-size: 13px; min-width: 0; }
 nav .sep { color: var(--faint); }
 nav button { background: none; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 4px 8px;
@@ -38,13 +43,37 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 .spacer { flex: 1; }
 .select { position: relative; }
 .select select { appearance: none; -webkit-appearance: none; background: var(--panel); color: var(--text);
-  border: 1px solid var(--line); border-radius: 10px; padding: 8px 36px 8px 14px; font: 600 13px var(--font);
+  border: 1px solid var(--line); border-radius: 10px; padding: 6px 32px 6px 12px; font: 600 13px var(--font);
   cursor: pointer; backdrop-filter: blur(10px); }
 .select select:hover { border-color: rgba(255,255,255,.22); }
 .select select:focus-visible { outline: 2px solid rgba(255,255,255,.4); outline-offset: 2px; }
-.select::after { content: ""; position: absolute; right: 14px; top: 50%; width: 6px; height: 6px; margin-top: -5px;
+.select::after { content: ""; position: absolute; right: 12px; top: 50%; width: 6px; height: 6px; margin-top: -5px;
   border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); pointer-events: none; }
 .select option { background: #1e1e1c; }
+
+/* search */
+.filters { flex-wrap: wrap; }
+.search { position: relative; }
+.search input { width: 230px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+  padding: 6px 12px 6px 34px; font: 500 13px var(--font); backdrop-filter: blur(10px); outline: none; }
+.search input::placeholder { color: var(--faint); }
+.search input:hover { border-color: rgba(255,255,255,.22); }
+.search input:focus { border-color: rgba(255,255,255,.4); }
+.search svg { position: absolute; left: 11px; top: 50%; margin-top: -7px; width: 14px; height: 14px; stroke: var(--faint); fill: none;
+  stroke-width: 2; stroke-linecap: round; pointer-events: none; z-index: 1; }
+#results { position: absolute; top: calc(100% + 6px); left: 0; width: 340px; max-height: 340px; overflow-y: auto; display: none;
+  background: rgba(30,30,28,.97); border: 1px solid var(--line); border-radius: 12px; padding: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45); backdrop-filter: blur(14px); }
+#results.show { display: block; }
+.res { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.res.on, .res:hover { background: rgba(255,255,255,.08); }
+.res i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.res div { min-width: 0; flex: 1; }
+.res b { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res small { display: block; font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.res em { font-style: normal; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.res mark { background: none; color: #fff; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(255,255,255,.35); }
+.none { padding: 10px; font-size: 12.5px; color: var(--muted); }
 
 /* legend */
 #legend { position: fixed; left: 24px; bottom: 24px; z-index: 10; width: 244px; padding: 14px 8px 8px;
@@ -93,7 +122,7 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 @media (max-width: 760px) {
   #hint, #stats { display: none; }
   #legend { width: calc(100% - 32px); left: 16px; bottom: 16px; }
-  header { padding: 0 16px; gap: 12px; }
+  header { padding: 14px 16px 4px; }
   .brand span { display: none; }
 }
 </style>
@@ -102,15 +131,26 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 <div id="stage"><svg id="svg" role="img" aria-label="Faculty collaboration network"></svg></div>
 
 <header>
-  <div class="brand">NC State <span>Collaborations</span></div>
-  <nav id="crumbs" aria-label="Breadcrumb"></nav>
-  <div class="spacer"></div>
-  <div class="select"><select id="period" aria-label="Time period"></select></div>
+  <div class="hl">
+    <div class="toprow">
+      <div class="brand"><img alt="NC State" src="data:image/png;base64,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"><span>Research Networks</span></div>
+      <nav id="crumbs" aria-label="Breadcrumb"></nav>
+    </div>
+    <div class="filters">
+      <label for="period">Period</label>
+      <div class="select"><select id="period" aria-label="Time period"></select></div>
+      <div class="search">
+        <svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+        <input id="q" type="text" placeholder="Search faculty" autocomplete="off" spellcheck="false" aria-label="Search faculty" aria-controls="results">
+        <div id="results" role="listbox"></div>
+      </div>
+    </div>
+  </div>
 </header>
 
 <aside id="legend"><h2>Colleges</h2><div id="lg"></div></aside>
 <div id="stats"><div><b id="s-n">–</b><small>faculty</small></div><div><b id="s-e">–</b><small>collaborations</small></div></div>
-<div id="hint">Scroll to zoom · drag to pan · click a college or person to explore · Esc goes back</div>
+<div id="hint">Scroll to zoom · drag to pan · click a college or person to explore · press / to search · Esc goes back</div>
 <div id="tip"></div>
 
 <script>
@@ -137,7 +177,7 @@ let ticks = 0, userZoomed = false;
 const sel = document.getElementById("period");
 Object.entries(PERIODS).forEach(([k, v]) => sel.add(new Option(v, k)));
 sel.value = state.block;
-sel.onchange = () => { state.block = sel.value; state.ego = null; render(); };
+sel.onchange = () => { state.block = sel.value; state.ego = null; closeResults(); render(); };
 
 function crumbs() {
   const nav = document.getElementById("crumbs"); nav.innerHTML = "";
@@ -162,6 +202,61 @@ function legend(counts) {
     lg.appendChild(b);
   });
 }
+// ---------- search ----------
+const qIn = document.getElementById("q"), resBox = document.getElementById("results");
+const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const searchCache = {};
+let hits = [], hi = 0;
+function searchIndex() {
+  return searchCache[state.block] || (searchCache[state.block] = D.blocks[state.block].n.map(r => ({ r, k: norm(r[1]) })));
+}
+function runSearch() {
+  const t = norm(qIn.value.trim());
+  if (!t) { closeResults(); return; }
+  const words = t.split(/\s+/);
+  hits = searchIndex().filter(x => words.every(w => x.k.includes(w)))
+    .map(x => ({ r: x.r, s: (x.k.startsWith(t) ? 0 : x.k.split(/\s+/).some(w => w.startsWith(words[0])) ? 1 : 2) }))
+    .sort((a, b) => a.s - b.s || b.r[4] - a.r[4]).slice(0, 8).map(x => x.r);
+  hi = 0; drawResults(t);
+}
+function drawResults(t) {
+  resBox.innerHTML = "";
+  if (!hits.length) { resBox.innerHTML = `<div class="none">No one matching “${esc(qIn.value.trim())}” in ${PERIODS[state.block]}</div>`; }
+  hits.forEach((r, i) => {
+    const el = document.createElement("div");
+    el.className = "res" + (i === hi ? " on" : ""); el.setAttribute("role", "option");
+    const name = esc(r[1]), m = norm(r[1]).indexOf(t.split(/\s+/)[0]);
+    const label = m >= 0 ? name.slice(0, m) + "<mark>" + name.slice(m, m + t.split(/\s+/)[0].length) + "</mark>" + name.slice(m + t.split(/\s+/)[0].length) : name;
+    el.innerHTML = `<i style="background:${COL[r[2]]}"></i><div><b>${label}</b><small>${esc(r[3] || D.colleges[r[2]])}</small></div><em>${r[4]} pubs</em>`;
+    el.onmousedown = e => { e.preventDefault(); pick(r); };
+    el.onmouseenter = () => { hi = i; [...resBox.children].forEach((c, j) => c.classList.toggle("on", j === i)); };
+    resBox.appendChild(el);
+  });
+  resBox.classList.add("show");
+}
+function closeResults() { resBox.classList.remove("show"); hits = []; }
+function pick(r) {
+  if (state.college !== null && state.college !== r[2]) state.college = null; // keep the college context only if they belong to it
+  state.ego = r[0];
+  qIn.value = ""; closeResults(); qIn.blur();
+  render();
+}
+qIn.addEventListener("input", runSearch);
+qIn.addEventListener("focus", () => { if (qIn.value.trim()) runSearch(); });
+qIn.addEventListener("blur", closeResults);
+qIn.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (!hits.length) return; e.preventDefault();
+    hi = (hi + (e.key === "ArrowDown" ? 1 : -1) + hits.length) % hits.length; drawResults(norm(qIn.value.trim()));
+    resBox.children[hi]?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") { if (hits[hi]) pick(hits[hi]); }
+  else if (e.key === "Escape") { e.stopPropagation(); if (resBox.classList.contains("show")) closeResults(); else { qIn.value = ""; qIn.blur(); } }
+});
+addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== qIn) { e.preventDefault(); qIn.focus(); } });
+{ const q = new URLSearchParams(location.search);   // test hook: ?search=jiang[&enter]
+  if (q.has("search")) setTimeout(() => { qIn.value = q.get("search"); runSearch(); if (q.has("enter") && hits[0]) pick(hits[0]); }, 50); }
+
 addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   if (state.ego) state.ego = null; else if (state.college !== null) state.college = null; else return;
@@ -284,7 +379,7 @@ function fit(W, H, ms) {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   nodes.forEach(n => { x0 = Math.min(x0, n.x - n.r); x1 = Math.max(x1, n.x + n.r); y0 = Math.min(y0, n.y - n.r); y1 = Math.max(y1, n.y + n.r); });
   labelSel.each(function () { const b = this.getBBox(); x0 = Math.min(x0, b.x); x1 = Math.max(x1, b.x + b.width); y0 = Math.min(y0, b.y); y1 = Math.max(y1, b.y + b.height); });
-  const padL = W > 760 ? 290 : 24, padR = 24, padT = 76, padB = W > 760 ? 90 : 300;
+  const padL = W > 760 ? 290 : 24, padR = 24, padT = 24, padB = W > 760 ? 90 : 300;
   const aw = W - padL - padR, ah = H - padT - padB;
   const k = Math.min(aw / (x1 - x0), ah / (y1 - y0), 1.4);
   const tx = padL + (aw - k * (x1 - x0)) / 2 - k * x0, ty = padT + (ah - k * (y1 - y0)) / 2 - k * y0;
