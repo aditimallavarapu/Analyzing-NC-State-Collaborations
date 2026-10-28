@@ -24,8 +24,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
 /* top bar */
 header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; padding: 18px 24px 4px; pointer-events: none; }
-header::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 90px; z-index: -1; pointer-events: none;
-  background: linear-gradient(to bottom, rgba(18,18,17,.96) 55%, rgba(18,18,17,0)); }
+header::before { content: ""; position: absolute; left: 0; top: 0; width: 640px; height: 90px; z-index: -1; pointer-events: none;   /* only behind the controls, not across the whole top edge */
+  background: linear-gradient(to bottom, rgba(18,18,17,.96) 55%, rgba(18,18,17,0));
+  -webkit-mask-image: linear-gradient(to right, #000 70%, transparent); mask-image: linear-gradient(to right, #000 70%, transparent); }
 header > * { pointer-events: auto; }
 .hl { display: inline-flex; flex-direction: column; gap: 14px; pointer-events: none; }
 .hl > * { pointer-events: auto; }
@@ -304,17 +305,19 @@ const state = { block: "2021", college: null, ego: null, psi: false, cfep: false
 const svg = d3.select("#svg");
 const root = svg.append("g");
 const gE = root.append("g"), gH = root.append("g"), gN = root.append("g"), gL = root.append("g");
-const zoom = d3.zoom().scaleExtent([0.1, 12]).on("zoom", e => { root.attr("transform", e.transform); svg.style("--k", e.transform.k); if (e.sourceEvent) userZoomed = true; });
+const zoom = d3.zoom().scaleExtent([0.1, 12]).on("zoom", e => { root.attr("transform", e.transform); gL.style("--k", e.transform.k); if (e.sourceEvent) userZoomed = true; });
 svg.call(zoom).on("dblclick.zoom", null);
 
 const tip = document.getElementById("tip");
 let sim = null, nodes = [], edges = [], byId = new Map(), adj = new Map(), groupKey = null, labelSel = null, groups = [];
 const prevPos = new Map();
+const layoutCache = new Map();    // view key -> {id: [x, y]}: a view we have already laid out is reused instead of recalculated
+let curViewKey = null, morphing = false, prevEdgeCount = 0;
 // How strongly departments hold together inside a college view. 0 = departments are linked as loosely as ordinary
 // co-authors (old behaviour); 1 = as separated as colleges are in the all-colleges view. Currently 3/4 of the way.
 const GROUP_BLEND = .75, lerp = (a, b, t) => a + (b - a) * t;
 let focusId = null;   // collaborator currently hovered in the Insights panel while a person is selected
-let ticks = 0, userZoomed = false, panelOpen = false, curDeptClr = {};
+let rendered = false, morphRun = 0, ticks = 0, userZoomed = false, panelOpen = false, curDeptClr = {};
 
 // ---------- controls ----------
 const sel = document.getElementById("period");
@@ -656,6 +659,9 @@ function applyEgoEdge(d) { if (state.ego) gE.selectAll(".edge").filter(x => x ==
 function render() {
   if (sim) sim.stop();
   nodes.forEach(n => prevPos.set(n.id, [n.x, n.y]));
+  if (curViewKey && !morphing && nodes.length) layoutCache.set(curViewKey, new Map(nodes.map(n => [n.id, [n.x, n.y]])));   // remember where this view ended up
+  prevEdgeCount = edges.length;
+  const prevIds = new Set(nodes.map(n => n.id));          // what was on screen before this render
   const W = innerWidth, H = innerHeight, data = D.blocks[state.block];
   const psi = state.psi ? (D.psi[state.block] || { n: {}, e: [] }) : null;   // PSI filter: people + PSI co-authorships only
   const inPsi = r => !psi || psi.n[r[0]] !== undefined;
@@ -663,7 +669,7 @@ function render() {
   const inScope = r => (state.college === null || r[2] === state.college) && inPsi(r) && inCfep(r);
   nodes = data.n.filter(inScope).map(r => {
     const p = prevPos.get(r[0]);
-    return { _new: !p, id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], f: r[5] === 1, k: r[6], x: p ? p[0] : W / 2 + (Math.random() - .5) * 60, y: p ? p[1] : H / 2 + (Math.random() - .5) * 60 };
+    return { _new: !p, _enter: !prevIds.has(r[0]), id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], f: r[5] === 1, k: r[6], x: p ? p[0] : W / 2 + (Math.random() - .5) * 60, y: p ? p[1] : H / 2 + (Math.random() - .5) * 60 };
   });
   byId = new Map(nodes.map(n => [n.id, n]));
   edges = (psi ? psi.e : data.e).filter(e => byId.has(e[0]) && byId.has(e[1])).map(e => ({ source: e[0], target: e[1], w: e[2], papers: e[3] || [], xc: byId.get(e[0]).c !== byId.get(e[1]).c }));
@@ -694,7 +700,15 @@ function render() {
   // groups (clusters) + anchors
   groupKey = state.college === null ? n => n.c : n => n.d;
   const keys = [...new Set(nodes.map(groupKey))].sort((a, b) => String(a).localeCompare(String(b)));
-  const R = Math.min(W, H) * (state.college === null ? .44 : .38), anchor = new Map();
+  let R = Math.min(W, H) * (state.college === null ? .44 : .38);
+  if (state.college !== null) {
+    // Inside a college, size the ring from the departments themselves: just far enough apart that neighbouring clusters
+    // (roughly 8*sqrt(members)+12 px wide) clear each other with room for a label, never larger than the full-size ring.
+    const cnt = new Map(); nodes.forEach(n => cnt.set(groupKey(n), (cnt.get(groupKey(n)) || 0) + 1));
+    const rad = k => 8 * Math.sqrt(cnt.get(k)) + 12, m = keys.length, GAP = 50;
+    R = m < 2 ? 0 : Math.min(R, Math.max(...keys.map((k, i) => (rad(k) + rad(keys[(i + 1) % m]) + GAP) / (2 * Math.sin(Math.PI / m)))));
+  }
+  const anchor = new Map();
   keys.forEach((k, i) => { const a = 2 * Math.PI * i / keys.length - Math.PI / 2; anchor.set(k, { x: W / 2 + R * Math.cos(a), y: H / 2 + R * Math.sin(a) }); });
   nodes.forEach(n => { if (n._new) { const a = anchor.get(groupKey(n)); n.x = a.x + (Math.random() - .5) * 60; n.y = a.y + (Math.random() - .5) * 60; } });
   groups = keys.map(k => ({ k, label: state.college === null ? D.colleges[k] : k, members: nodes.filter(n => groupKey(n) === k) }));
@@ -704,7 +718,9 @@ function render() {
   const wS = d3.scaleLinear().domain([1, Math.max(2, d3.max(edges, e => e.w))]).range([.8, 4]);
 
   // edges
-  const eSel = gE.selectAll("line").data(edges, d => d.source + "|" + d.target).join("line").attr("class", "edge").attr("stroke-width", d => wS(d.w));
+  const heavy = edges.length > 800 || prevEdgeCount > 800;      // big views: lines are hidden while things move, then faded back in
+  const eSel = gE.selectAll("line").data(edges, d => d.source + "|" + d.target)
+    .join(enter => enter.append("line"), update => update, exit => heavy ? exit.remove() : exit.transition().duration(250).style("opacity", 0).remove()).attr("class", "edge").attr("stroke-width", d => wS(d.w));
   // wide invisible hit-targets so thin lines are easy to hover
   const hSel = gH.selectAll("line").data(edges, d => (d.source.id || d.source) + "|" + (d.target.id || d.target)).join("line").attr("class", "hit")
     .on("mouseover", function (ev, d) { eSel.filter(x => x === d).classed("hi", true); showEdgeTip(ev, d); })
@@ -713,7 +729,8 @@ function render() {
   // nodes
   const SVGNS = "http://www.w3.org/2000/svg", diamond = r => `M0,${-1.3 * r}L${1.05 * r},0L0,${1.3 * r}L${-1.05 * r},0Z`;
   const nSel = gN.selectAll(".node").data(nodes, d => d.id)
-    .join(enter => enter.append(d => document.createElementNS(SVGNS, d.f ? "path" : "circle")))   // CFEP members are diamonds
+    .join(enter => enter.append(d => document.createElementNS(SVGNS, d.f ? "path" : "circle")),   // CFEP members are diamonds
+          update => update, exit => exit.transition().duration(250).style("opacity", 0).remove())
     .attr("class", "node").attr("fill", clr)
     .each(function (d) { const el = d3.select(this); if (d.f) el.attr("d", diamond(d.r)); else el.attr("r", d.r); })
     .on("mouseover", (ev, d) => showTip(ev, d)).on("mousemove", moveTip).on("mouseout", hideTip)
@@ -725,6 +742,12 @@ function render() {
   labelSel = gL.selectAll("text").data(groups, d => d.k).join("text").attr("class", "glabel").text(d => d.label.length > 28 ? d.label.slice(0, 27) + "…" : d.label);
   labelSel.selectAll("title").remove(); labelSel.append("title").text(d => d.label);
 
+  const draw = () => {
+    eSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+    hSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+    nSel.attr("transform", d => `translate(${d.x},${d.y})`);
+    placeLabels(W, H);
+  };
   sim = d3.forceSimulation(nodes)
     .force("link", d3.forceLink(edges).id(d => d.id)
       .distance(d => d.xc ? 62 : groupKey(d.source) === groupKey(d.target) ? 18 : (state.college !== null ? lerp(38, 62, GROUP_BLEND) : 38))
@@ -733,19 +756,12 @@ function render() {
     .force("x", d3.forceX(d => anchor.get(groupKey(d)).x).strength(.9))
     .force("y", d3.forceY(d => anchor.get(groupKey(d)).y).strength(.9))
     .force("collide", d3.forceCollide(d => (d.f ? d.r * 1.3 : d.r) + 3))   // diamonds are taller than circles of the same size
-    .alphaDecay(.03).on("tick", () => {
-      eSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-      hSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-      nSel.attr("transform", d => `translate(${d.x},${d.y})`);
-      placeLabels(W, H);
-      if (++ticks % 15 === 0) fit(W, H, 0);
-    })
-    .on("end", () => fit(W, H, 0));
+    .alphaDecay(.03).on("tick", draw);
 
   ticks = 0; userZoomed = false;
   // First load / new period: compute the layout before painting and fade in the settled network
   // (no "explosion"). Moving between levels keeps the animation, since those nodes already have positions.
-  const fresh = nodes.filter(n => n._new).length > nodes.length * .5;
+  const fresh = !rendered;
   if (fresh || new URLSearchParams(location.search).has("settle")) {
     root.style("transition", "none").style("opacity", 0);
     sim.stop(); for (let i = 0; i < 220; i++) sim.tick();
@@ -753,22 +769,64 @@ function render() {
     fit(W, H, 0);
     requestAnimationFrame(() => requestAnimationFrame(() => root.style("transition", "opacity .5s ease").style("opacity", 1)));
     sim.alpha(.02).restart();                 // let it relax gently
-  } else root.style("opacity", 1);
+  } else {
+    // Moving between views (all colleges <-> a college, another period, a filter): lay the new view out out of sight
+    // (or reuse the layout we already have for it), then glide every node and the camera from where they are now to where
+    // they will end up, in one eased move.
+    root.style("transition", "none").style("opacity", 1);
+    const viewKey = [state.block, state.college, state.psi, state.cfep, W, H].join("|"), cached = layoutCache.get(viewKey);
+    const from = nodes.map(n => [n.x, n.y]);
+    let to;
+    sim.stop();                                                                                    // the animation, not the simulation, moves the nodes
+    if (cached && nodes.every(n => cached.has(n.id))) to = nodes.map(n => cached.get(n.id));      // seen this view before: no recalculation
+    else { for (let i = 0; i < 150; i++) sim.tick(); to = nodes.map(n => [n.x, n.y]); }
+    nodes.forEach((n, i) => { n.x = to[i][0]; n.y = to[i][1]; }); placeLabels(W, H);
+    const T0 = d3.zoomTransform(svg.node()), T1 = fitTransform(W, H);
+    const view = T => [(W / 2 - T.x) / T.k, (H / 2 - T.y) / T.k, W / T.k];
+    const zi = d3.interpolateZoom(view(T0), view(T1)), t0 = performance.now(), DUR = 850, myRun = ++morphRun;
+    nodes.forEach((n, i) => { n.x = from[i][0]; n.y = from[i][1]; }); draw();
+    const enterN = nSel.filter(d => d._enter), enterE = heavy ? null : eSel.filter(d => d.source._enter || d.target._enter);
+    const fadeIn = e => { enterN.style("opacity", e); if (enterE) enterE.style("opacity", e); };
+    gE.interrupt().style("opacity", null);
+    if (heavy) gE.transition().duration(160).style("opacity", 0);            // hide the thousands of lines while everything moves
+    fadeIn(0); morphing = true;
+    const drawMoving = () => { nSel.attr("transform", d => `translate(${d.x},${d.y})`); placeLabels(W, H); };   // nodes + labels only
+    const step = now => {
+      if (myRun !== morphRun) return;                  // a newer view change took over
+      const t = Math.min(1, (now - t0) / DUR), e = d3.easeCubicInOut(t);
+      nodes.forEach((n, i) => { n.x = from[i][0] + (to[i][0] - from[i][0]) * e; n.y = from[i][1] + (to[i][1] - from[i][1]) * e; });
+      if (heavy) drawMoving(); else draw();
+      fadeIn(e);
+      const [cx, cy, w] = zi(e), k = W / w;
+      svg.call(zoom.transform, d3.zoomIdentity.translate(W / 2 - cx * k, H / 2 - cy * k).scale(k));
+      if (t < 1) requestAnimationFrame(step);
+      else {
+        morphing = false; draw(); sim.alpha(0);
+        enterN.style("opacity", null); if (enterE) enterE.style("opacity", null);
+        if (heavy) gE.transition().duration(350).style("opacity", 1).on("end", () => gE.style("opacity", null));
+      }
+    };
+    requestAnimationFrame(step);
+  }
+  rendered = true; curViewKey = [state.block, state.college, state.psi, state.cfep, W, H].join("|");
   legend(counts); crumbs(); applyEgo(); filtersUI(); panelRender();
   statsRender();
 }
 // scale + centre the network inside the free area (clear of the header, legend and stats)
 function fit(W, H, ms) {
   if (userZoomed || !nodes.length) return;
+  const t = fitTransform(W, H);
+  (ms ? svg.transition().duration(ms) : svg).call(zoom.transform, t);
+}
+function fitTransform(W, H) {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   nodes.forEach(n => { x0 = Math.min(x0, n.x - n.r); x1 = Math.max(x1, n.x + n.r); y0 = Math.min(y0, n.y - n.r); y1 = Math.max(y1, n.y + n.r); });
   labelSel.each(function () { const b = this.getBBox(); x0 = Math.min(x0, b.x); x1 = Math.max(x1, b.x + b.width); y0 = Math.min(y0, b.y); y1 = Math.max(y1, b.y + b.height); });
-  const padL = W > 760 ? 290 : 24, padR = panelOpen && W > 760 ? 380 : 24, padT = 24, padB = W > 760 ? 90 : 300;
+  const padL = W > 760 ? 290 : 24, padR = panelOpen && W > 760 ? 380 : 24, padT = 56, padB = W > 760 ? 90 : 300;
   const aw = W - padL - padR, ah = H - padT - padB;
-  const k = Math.min(aw / (x1 - x0), ah / (y1 - y0), 1.4);
+  const k = Math.min(aw / (x1 - x0), ah / (y1 - y0), state.college !== null ? 2.2 : 1.4);
   const tx = padL + (aw - k * (x1 - x0)) / 2 - k * x0, ty = padT + (ah - k * (y1 - y0)) / 2 - k * y0;
-  const t = d3.zoomIdentity.translate(tx, ty).scale(k);
-  (ms ? svg.transition().duration(ms) : svg).call(zoom.transform, t);
+  return d3.zoomIdentity.translate(tx, ty).scale(k);
 }
 // labels sit just outside each cluster, away from the centre, so nodes never cover them
 function placeLabels(W, H) {
@@ -780,7 +838,7 @@ function placeLabels(W, H) {
     d3.select(this).attr("x", cx + dx * (ext + 16)).attr("y", cy + dy * (ext + 16) + 4);
   });
 }
-addEventListener("resize", () => render());
+addEventListener("resize", () => { layoutCache.clear(); render(); });
 requestAnimationFrame(() => setTimeout(render, 0));   // let the header / legend paint before the layout is computed
 </script>
 </body>
