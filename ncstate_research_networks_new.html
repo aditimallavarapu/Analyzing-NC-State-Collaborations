@@ -187,8 +187,8 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 .lg b { font-weight: 500; font-variant-numeric: tabular-nums; color: var(--faint); font-size: 12px; }
 
 /* stats + hint */
-#stats { display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: baseline; white-space: nowrap;
-  width: 0; min-width: 100%; margin-top: -4px;   /* width 0 + min-width 100%: matches the controls row above, never wider than it */
+#stats { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 22px; align-items: baseline; white-space: nowrap;
+  width: 0; min-width: 100%; margin-top: -4px;   /* width 0 + min-width 100%: never makes the block wider than the controls row above */
   text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg), 0 0 14px var(--bg); }   /* dark halo keeps it readable over nodes */
 #stats .st { display: flex; align-items: baseline; gap: 5px; cursor: default; }
 #stats b { font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
@@ -202,10 +202,14 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 .edge { stroke: #fff; stroke-opacity: .07; fill: none; }
 .edge.hi { stroke-opacity: .55; }
 .edge.dim { stroke-opacity: .015; }
+.edge { transition: stroke-opacity .15s; }
 .hit { stroke: transparent; stroke-width: 9px; fill: none; cursor: pointer; }
 .node { stroke: var(--bg); stroke-width: 1.2; transition: opacity .15s; cursor: pointer; }
 .node.dim { opacity: .1; }
 .node.pin { stroke: #fff; stroke-width: 2.5; }
+.node.sub { opacity: .45; }
+.node.focus { opacity: 1; stroke: #fff; stroke-width: 3.5; filter: drop-shadow(0 0 7px rgba(255,255,255,.75)); }
+.edge.focus { stroke-opacity: 1; stroke-width: 3.5px; }
 .glabel { font: 600 calc(13px / var(--k, 1)) var(--font); fill: var(--muted); text-anchor: middle; pointer-events: none;
   paint-order: stroke; stroke: var(--bg); stroke-width: calc(4px / var(--k, 1)); stroke-linejoin: round; }
 
@@ -309,6 +313,7 @@ const prevPos = new Map();
 // How strongly departments hold together inside a college view. 0 = departments are linked as loosely as ordinary
 // co-authors (old behaviour); 1 = as separated as colleges are in the all-colleges view. Currently 3/4 of the way.
 const GROUP_BLEND = .75, lerp = (a, b, t) => a + (b - a) * t;
+let focusId = null;   // collaborator currently hovered in the Insights panel while a person is selected
 let ticks = 0, userZoomed = false, panelOpen = false, curDeptClr = {};
 
 // ---------- controls ----------
@@ -424,14 +429,26 @@ document.getElementById("pb").addEventListener("click", e => {
   const r = e.target.closest("[data-go]"); if (!r) return;
   const n = fullGraph().nodes.get(r.dataset.go); if (!n) return;
   if (state.college !== null && state.college !== n.c) state.college = null;   // keep the college only if they belong to it
-  state.ego = n.id; render();
+  focusId = null; state.ego = n.id; render();
 });
 document.getElementById("pb").addEventListener("mouseover", e => {
   const r = e.target.closest("[data-hl]"); if (!r) return;
   const [k, v] = [r.dataset.hl.slice(0, 1), r.dataset.hl.slice(2)];
-  if (k === "p") { if (byId.has(v)) spot(n => n.id === v); } else spot(n => n.d === v);
+  clearTimeout(previewTimer);
+  if (k === "p" && state.ego && v !== state.ego && adj.get(state.ego)?.has(v)) { focusId = v; applyEgo(); }   // in a person's view: highlight the collaborator, keep their network
+  else if (k === "p") previewTimer = setTimeout(() => previewEgo(v), 70);   // short delay so sweeping down the list doesn't flicker
+  else spot(n => n.d === v);
 });
-document.getElementById("pb").addEventListener("mouseleave", () => applyEgo());
+document.getElementById("pb").addEventListener("mouseleave", () => { clearTimeout(previewTimer); focusId = null; applyEgo(); });
+// Hovering a person in the panel briefly lights up their whole network on the canvas (nothing is pinned).
+let previewTimer = null;
+function previewEgo(id) {
+  if (!byId.has(id)) return;                          // not on the canvas right now (other college / filtered out)
+  const nb = new Set([id, ...(adj.get(id) || [])]);
+  gN.selectAll(".node").classed("dim", d => !nb.has(d.id)).classed("pin", d => d.id === id);
+  gE.selectAll(".edge").classed("hi", e => e.source.id === id || e.target.id === id)
+    .classed("dim", e => !(e.source.id === id || e.target.id === id));
+}
 const panel = document.getElementById("panel"), ibtn = document.getElementById("ibtn");
 function setPanel(open) {
   panelOpen = open; panel.classList.toggle("open", open); ibtn.classList.toggle("open", open); ibtn.setAttribute("aria-expanded", open);
@@ -546,6 +563,8 @@ qIn.addEventListener("keydown", e => {
 });
 addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== qIn) { e.preventDefault(); qIn.focus(); } });
 { const q = new URLSearchParams(location.search);   // test hook: ?search=jiang[&enter]
+  if (q.has("preview")) setTimeout(() => previewEgo(q.get("preview")), 3500);   // test hook: show this person's network as the panel hover does
+  if (q.has("focus")) focusId = q.get("focus");   // test hook: ?ego=<id>&focus=<collaborator id>
   if (q.has("popup")) setTimeout(() => setPop(true), 60);   // test hook
   if (q.has("panel")) setTimeout(() => setPanel(true), 60);   // test hook
   if (q.has("tipedge")) setTimeout(() => { const el = gH.selectAll("line").nodes()[+q.get("tipedge")];
@@ -624,6 +643,10 @@ function applyEgo() {
   gN.selectAll(".node").classed("dim", d => !nb.has(d.id)).classed("pin", d => d.id === state.ego);
   gE.selectAll(".edge").classed("hi", d => d.source.id === state.ego || d.target.id === state.ego)
     .classed("dim", d => !(d.source.id === state.ego || d.target.id === state.ego));
+  // a collaborator hovered in the panel: ring it and pick out its line to the selected person, the rest of the network stays visible
+  const f = focusId !== state.ego && nb.has(focusId) ? focusId : null;
+  gN.selectAll(".node").classed("focus", d => d.id === f).classed("sub", d => f !== null && d.id !== f && d.id !== state.ego && nb.has(d.id));
+  gE.selectAll(".edge").classed("focus", d => f !== null && ((d.source.id === state.ego && d.target.id === f) || (d.target.id === state.ego && d.source.id === f)));
 }
 
 // after hovering an edge, put its ego-mode highlight back
