@@ -23,7 +23,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #stage svg:active { cursor: grabbing; }
 
 /* top bar */
-header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; padding: 18px 24px 4px; pointer-events: none;
+header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; padding: 18px 24px 4px; pointer-events: none; }
+header::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 90px; z-index: -1; pointer-events: none;
   background: linear-gradient(to bottom, rgba(18,18,17,.96) 55%, rgba(18,18,17,0)); }
 header > * { pointer-events: auto; }
 .hl { display: inline-flex; flex-direction: column; gap: 14px; pointer-events: none; }
@@ -73,6 +74,61 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 .res small { display: block; font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .res em { font-style: normal; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .res mark { background: none; color: #fff; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(255,255,255,.35); }
+/* insights panel */
+.ibtn { position: fixed; top: 18px; right: 24px; z-index: 11; }
+.ibtn.open { border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.1); }
+#panel { position: fixed; right: 24px; top: 70px; bottom: 24px; width: 330px; z-index: 9; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); overflow: hidden;
+  transform: translateX(calc(100% + 40px)); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s; }
+#panel.open { transform: none; visibility: visible; transition: transform .22s ease; }
+#ph { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+#ph h2 { font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+#ph p { font-size: 12.5px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 7px; }
+#ph p i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+#pb { overflow-y: auto; padding: 6px 10px 14px; flex: 1; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent; }
+#pb::-webkit-scrollbar { width: 8px; }
+#pb::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 4px; }
+#pb::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.28); }
+#pb::-webkit-scrollbar-track { background: transparent; }
+#pb h3 { font-size: 13px; font-weight: 600; color: var(--text); padding: 14px 8px 6px; display: flex; justify-content: space-between; align-items: baseline; }
+#pb h3 small { font-size: 11px; font-weight: 500; color: var(--faint); }
+.li { position: relative; display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 8px; cursor: default; overflow: hidden; }
+.li[data-go] { cursor: pointer; }
+.li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--w, 0); background: var(--c, #fff); opacity: .13; border-radius: 8px; }
+.li:hover { background: rgba(255,255,255,.06); }
+.li.p { margin-bottom: 3px; padding: 8px 10px; }
+.li.p::before { width: 100%; opacity: .22; transition: opacity .12s; }
+.li.p:hover { background: none; }
+.li.p:hover::before { opacity: .36; }
+.li > * { position: relative; }
+.li .rk { width: 16px; font-size: 11.5px; color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.li i.d { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.li .pair { display: flex; align-items: center; gap: 4px; width: 24px; flex-shrink: 0; margin-top: 3.5px; }
+.li .pair i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.li .tx { flex: 1; min-width: 0; }
+.li.pr::before { display: none; }
+.li.pr { align-items: flex-start; }
+.li.pr .v { line-height: 17px; }
+.li.pr .tx b { white-space: normal; line-height: 1.3; }
+.li .tx b { display: block; font-size: 13px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.li .tx small { display: block; font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.li .v { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
+.dept { padding: 8px 8px 9px; border-radius: 8px; }
+.dept:hover { background: rgba(255,255,255,.06); }
+.dept .top { display: flex; align-items: center; gap: 9px; }
+.dept .top i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.dept .top b { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dept .top span { font-size: 11.5px; color: var(--faint); }
+.stk { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,.06); margin: 7px 0 4px 18px; gap: 2px; }
+.stk i { display: block; height: 100%; }
+.dept small { display: block; margin-left: 18px; font-size: 11px; color: var(--faint); }
+.key { display: flex; gap: 14px; padding: 0 8px 4px; font-size: 11px; color: var(--faint); }
+.key span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--k); vertical-align: -1px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 8px 4px; }
+.grid3 div { background: rgba(255,255,255,.05); border-radius: 10px; padding: 10px 10px 9px; }
+.grid3 b { display: block; font-size: 19px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.grid3 small { font-size: 11px; color: var(--muted); }
+.pnote { padding: 8px 8px 2px; font-size: 12px; color: var(--muted); line-height: 1.45; }
 /* filters */
 .fwrap { position: relative; }
 .fbtn { display: flex; align-items: center; gap: 8px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
@@ -111,7 +167,14 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 /* legend */
 #legend { position: fixed; left: 24px; bottom: 24px; z-index: 10; width: 244px; padding: 14px 8px 8px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); }
-#legend h2 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 0 10px 8px; }
+#legend { max-height: calc(100vh - 170px); display: flex; flex-direction: column; }
+#legend h2 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 0 10px 8px;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+#lg-back { display: none; background: none; border: 0; font: 500 11.5px var(--font); letter-spacing: 0; text-transform: none; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+#lg-back:hover { color: var(--text); background: rgba(255,255,255,.08); }
+#lg { overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent; }
+#lg::-webkit-scrollbar { width: 8px; }
+#lg::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 4px; }
 .lg { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px; background: none; border: 0;
   border-radius: 8px; color: var(--muted); font: 500 13px var(--font); cursor: pointer; text-align: left; transition: background .12s, color .12s, opacity .12s; }
 .lg:hover { background: rgba(255,255,255,.06); color: var(--text); }
@@ -122,13 +185,16 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 .lg b { font-weight: 500; font-variant-numeric: tabular-nums; color: var(--faint); font-size: 12px; }
 
 /* stats + hint */
-#stats { position: fixed; right: 24px; bottom: 24px; z-index: 10; display: flex; gap: 22px; padding: 12px 18px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); }
-#stats div { display: flex; flex-direction: column; gap: 2px; }
-#stats b { font-size: 20px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-#stats small { font-size: 11px; color: var(--muted); }
-#hint { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); font-size: 12px; color: var(--faint);
-  z-index: 5; white-space: nowrap; }
+#stats { display: flex; flex-wrap: wrap; align-items: baseline; align-self: flex-start; margin-top: -4px; padding-left: 2px;
+  text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg), 0 0 14px var(--bg); }   /* dark halo keeps it readable over nodes */
+#stats .st { display: flex; align-items: baseline; gap: 5px; cursor: default; }
+#stats .st + .st::before { content: "·"; color: var(--faint); margin: 0 10px; }
+#stats b { font-size: 14px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+#stats b em { font-style: normal; font-size: 11.5px; font-weight: 500; color: var(--muted); margin-left: 4px; letter-spacing: 0; }
+#stats small { font-size: 12.5px; color: var(--muted); }
+#hint { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); font-size: 12px; color: var(--muted);
+  z-index: 5; white-space: nowrap; pointer-events: none;
+  text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg), 0 0 14px var(--bg); }
 
 /* svg bits */
 .edge { stroke: #fff; stroke-opacity: .07; fill: none; }
@@ -160,7 +226,8 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 #tip .papers p { font-size: 12px; line-height: 1.4; color: var(--muted); padding: 3px 0; }
 
 @media (max-width: 760px) {
-  #hint, #stats { display: none; }
+  #hint { display: none; }
+  #stats .st + .st::before { margin: 0 6px; }
   #legend { width: calc(100% - 32px); left: 16px; bottom: 16px; }
   header { padding: 14px 16px 4px; }
   .brand span { display: none; }
@@ -200,13 +267,22 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
       </div>
       <div id="chips"></div>
     </div>
+    <div id="stats">
+      <div class="st"><b id="s-n">–</b><small>faculty</small></div>
+      <div class="st"><b id="s-e">–</b><small>collaborations</small></div>
+      <div class="st"><b id="s-x">–</b><small id="s-xl">cross-college</small></div>
+      <div class="st" id="s-pw"><b id="s-p">–</b><small id="s-pl">publications</small></div>
+    </div>
   </div>
 </header>
 
-<aside id="legend"><h2>Colleges</h2><div id="lg"></div></aside>
-<div id="stats"><div><b id="s-n">–</b><small>faculty</small></div><div><b id="s-e">–</b><small>collaborations</small></div></div>
+<aside id="legend"><h2><span id="lg-title">Colleges</span><button id="lg-back" title="Back to all colleges">‹ All colleges</button></h2><div id="lg"></div></aside>
+<button class="fbtn ibtn" id="ibtn" aria-expanded="false" aria-controls="panel">
+  <svg viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg>Insights
+</button>
+<aside id="panel" aria-label="Insights"><div id="ph"><h2 id="pt"></h2><p id="ps"></p></div><div id="pb"></div></aside>
 <div id="hint">Scroll to zoom · drag to pan · click a college or person to explore · press / to search · Esc goes back</div>
-<div id="empty"><div><b id="empty-t"></b><span id="empty-s"></span></div></div>
+<div id="empty" class="show"><div><b id="empty-t">Laying out network…</b><span id="empty-s"></span></div></div>
 <div id="tip"></div>
 
 <script>
@@ -214,9 +290,9 @@ const D = __DATA__;
 // One colour per college (fixed by entity, validated for the dark surface).
 const COL = ["#3987e5","#d95926","#199e70","#c98500","#d55181","#9085e9","#008300","#e66767","#1b98b0","#8f9a1c"];
 const PERIODS = {"2006":"2006 – 2010","2011":"2011 – 2015","2016":"2016 – 2020","2021":"2021 – 2025"};
-const state = { block: "2021", college: null, ego: null, psi: false };
+const state = { block: "2021", college: null, ego: null, psi: false, dept: null };
 { const q = new URLSearchParams(location.search);   // optional deep-link: ?college=0&ego=<id>&block=2016
-  if (q.has("college")) state.college = +q.get("college"); if (q.has("ego")) state.ego = q.get("ego"); if (q.has("block")) state.block = q.get("block"); if (q.has("psi")) state.psi = true; }
+  if (q.has("college")) state.college = +q.get("college"); if (q.has("ego")) state.ego = q.get("ego"); if (q.has("block")) state.block = q.get("block"); if (q.has("psi")) state.psi = true; if (q.has("dept")) state.dept = q.get("dept"); }
 
 const svg = d3.select("#svg");
 const root = svg.append("g");
@@ -227,7 +303,10 @@ svg.call(zoom).on("dblclick.zoom", null);
 const tip = document.getElementById("tip");
 let sim = null, nodes = [], edges = [], byId = new Map(), adj = new Map(), groupKey = null, labelSel = null, groups = [];
 const prevPos = new Map();
-let ticks = 0, userZoomed = false;
+// How strongly departments hold together inside a college view. 0 = departments are linked as loosely as ordinary
+// co-authors (old behaviour); 1 = as separated as colleges are in the all-colleges view. Currently 3/4 of the way.
+const GROUP_BLEND = .75, lerp = (a, b, t) => a + (b - a) * t;
+let ticks = 0, userZoomed = false, panelOpen = false, curDeptClr = {};
 
 // ---------- controls ----------
 const sel = document.getElementById("period");
@@ -246,15 +325,144 @@ function crumbs() {
     else { const b = document.createElement("button"); b.textContent = it.t; b.onclick = it.go; nav.appendChild(b); }
   });
 }
+// ---------- headline numbers (follow the current period, college and filters) ----------
+function statsRender() {
+  const g = fullGraph(), c = state.college;
+  let cross = 0, total = 0;
+  g.edges.forEach(e => {
+    const a = g.nodes.get(e[0]).c, b = g.nodes.get(e[1]).c;
+    if (c === null) { total++; if (a !== b) cross++; }
+    else if (a === c || b === c) { total++; if ((a === c) !== (b === c)) cross++; }   // ties between this college and the others
+  });
+  const pubs = nodes.reduce((sum, n) => sum + n.p, 0), set = (id, v) => document.getElementById(id).innerHTML = v;
+  set("s-n", nodes.length.toLocaleString());
+  set("s-e", edges.length.toLocaleString());
+  set("s-x", cross.toLocaleString() + (total ? `<em>${Math.round(cross / total * 100)}%</em>` : ""));
+  set("s-xl", c === null ? "cross-college" : "with other colleges");
+  set("s-p", pubs.toLocaleString());
+  set("s-pl", state.psi ? "PSI papers" : "publications");
+  document.getElementById("s-pw").title = "Each faculty member's publications in this period added together. A paper with several NC State authors counts once per author.";
+  document.getElementById("s-x").parentNode.title = c === null ? "Collaborations between faculty in different colleges, and their share of all collaborations."
+    : "Collaborations between faculty in this college and faculty in other colleges, as a share of all collaborations involving this college.";
+}
+
+// ---------- insights panel ----------
+// Whole-block graph (ignores the college drilldown) so the panel can describe cross-college ties
+const gCache = {};
+function fullGraph() {
+  const key = state.block + "|" + state.psi;
+  if (gCache[key]) return gCache[key];
+  const data = D.blocks[state.block], psi = state.psi ? (D.psi[state.block] || { n: {}, e: [] }) : null;
+  const nodes = new Map();
+  data.n.forEach(r => { if (psi && psi.n[r[0]] === undefined) return;
+    nodes.set(r[0], { id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4] }); });
+  const edges = (psi ? psi.e : data.e).filter(e => nodes.has(e[0]) && nodes.has(e[1]));
+  const nb = new Map(), add = (a, b, w) => { if (!nb.has(a)) nb.set(a, new Map()); nb.get(a).set(b, w); };
+  edges.forEach(e => { add(e[0], e[1], e[2]); add(e[1], e[0], e[2]); });
+  return gCache[key] = { nodes, edges, nb };
+}
+const pEsc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = n => n.toLocaleString();
+const hexA = (h, a) => h;   // (colour passed through; opacity handled in CSS)
+function rows(list, valueOf, max, unit) {
+  return list.map((n, i) => `<div class="li p" data-go="${pEsc(n.id)}" data-hl="p:${pEsc(n.id)}" style="--c:${state.college !== null && curDeptClr[n.d] ? curDeptClr[n.d] : COL[n.c]}">
+    <span class="rk">${i + 1}</span>
+    <div class="tx"><b>${pEsc(n.nm)}</b><small>${pEsc(n.d)}</small></div><span class="v">${fmt(valueOf(n))}${unit || ""}</span></div>`).join("");
+}
+function panelRender() {
+  const g = fullGraph(), pt = document.getElementById("pt"), ps = document.getElementById("ps"), body = document.getElementById("pb");
+  const metric = state.psi ? "PSI papers" : "Publications";
+  let h = "";
+  if (!g.nodes.size) { pt.textContent = "Insights"; ps.textContent = PERIODS[state.block]; body.innerHTML = '<div class="pnote">Nothing to show for the current filters.</div>'; return; }
+  if (state.ego && g.nodes.has(state.ego)) {                        // ---- person
+    const n = g.nodes.get(state.ego), nbs = [...(g.nb.get(n.id) || [])].map(([id, w]) => ({ n: g.nodes.get(id), w })).sort((a, b) => b.w - a.w);
+    pt.textContent = n.nm; ps.innerHTML = `<i style="background:${COL[n.c]}"></i>${pEsc(D.colleges[n.c])} · ${pEsc(n.d)}`;
+    const reach = new Set(nbs.map(x => x.n.c)), same = nbs.filter(x => x.n.c === n.c).length;
+    h += `<div class="grid3"><div><b>${fmt(n.p)}</b><small>${state.psi ? metric : metric.toLowerCase()}</small></div><div><b>${nbs.length}</b><small>collaborators</small></div><div><b>${reach.size || 0}</b><small>${reach.size === 1 ? "college" : "colleges"} reached</small></div></div>`;
+    if (nbs.length) {
+      h += `<div class="pnote">${same} in ${pEsc(D.colleges[n.c])}, ${nbs.length - same} in other colleges.</div>`;
+      const max = nbs[0].w;
+      h += `<h3>Collaborators <small>shared papers</small></h3>` + nbs.map(x => `<div class="li p" data-go="${pEsc(x.n.id)}" data-hl="p:${pEsc(x.n.id)}" style="--c:${COL[x.n.c]}">
+        <div class="tx"><b>${pEsc(x.n.nm)}</b><small>${pEsc(x.n.d)}${x.n.c !== n.c ? " · " + pEsc(D.colleges[x.n.c]) : ""}</small></div><span class="v">${x.w}</span></div>`).join("");
+    } else h += `<div class="pnote">No collaborations in ${PERIODS[state.block]}.</div>`;
+  } else if (state.college !== null) {                               // ---- college
+    const c = state.college, people = [...g.nodes.values()].filter(n => n.c === c).sort((a, b) => b.p - a.p);
+    const dep = new Map();
+    people.forEach(n => { if (!dep.has(n.d)) dep.set(n.d, { d: n.d, n: 0, within: 0, cross: 0 }); dep.get(n.d).n++; });
+    g.edges.forEach(e => { const a = g.nodes.get(e[0]), b = g.nodes.get(e[1]), w = e[2];
+      if (a.c === c && b.c === c) { dep.get(a.d).within += w; if (b.d !== a.d) dep.get(b.d).within += w; }
+      else if (a.c === c) dep.get(a.d).cross += w; else if (b.c === c) dep.get(b.d).cross += w; });
+    const list = [...dep.values()].sort((a, b) => (b.within + b.cross) - (a.within + a.cross)), mx = Math.max(1, ...list.map(x => x.within + x.cross));
+    const depts = [...new Set(people.map(n => n.d))].length;
+    pt.textContent = D.colleges[c]; ps.innerHTML = `<i style="background:${COL[c]}"></i>${fmt(people.length)} faculty · ${depts} departments`;
+    h += `<h3>Most active <small>${state.psi ? metric : metric.toLowerCase()}</small></h3>` + rows(people.slice(0, 10), n => n.p, people[0] ? people[0].p : 1);
+    h += `<h3>Departments <small>shared papers</small></h3><div class="key"><span style="--k:${COL[c]}">within ${pEsc(D.colleges[c])}</span><span style="--k:rgba(255,255,255,.35)">with other colleges</span></div>`;
+    h += list.map(x => { const t = x.within + x.cross, col = curDeptClr[x.d] || COL[c];
+      return `<div class="dept" data-hl="d:${pEsc(x.d)}"><div class="top"><i style="background:${col}"></i><b title="${pEsc(x.d)}">${pEsc(x.d)}</b><span>${x.n} faculty</span></div>
+      <div class="stk" style="width:calc(${(t / mx * 100).toFixed(1)}% - 18px)"><i style="width:${t ? x.within / t * 100 : 0}%;background:${col}"></i><i style="flex:1;background:rgba(255,255,255,.35)"></i></div>
+      <small>${fmt(x.within)} within · ${fmt(x.cross)} cross-college</small></div>`; }).join("");
+  } else {                                                           // ---- everything
+    const top = [...g.nodes.values()].sort((a, b) => b.p - a.p).slice(0, 10);
+    pt.textContent = "Overview"; ps.textContent = `${PERIODS[state.block]} · ${fmt(g.nodes.size)} faculty`;
+    h += `<h3>Most active <small>${state.psi ? metric : metric.toLowerCase()}</small></h3>` + rows(top, n => n.p, top[0].p);
+    const pair = new Map();
+    g.edges.forEach(e => { const a = g.nodes.get(e[0]).c, b = g.nodes.get(e[1]).c; if (a === b) return;
+      const k = Math.min(a, b) + "|" + Math.max(a, b); pair.set(k, (pair.get(k) || 0) + e[2]); });
+    const pl = [...pair].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    if (pl.length) { const mx = pl[0][1];
+      h += `<h3>Colleges that collaborate most <small>shared papers</small></h3>` + pl.map(([k, v]) => { const [a, b] = k.split("|").map(Number);
+        return `<div class="li pr"><span class="pair"><i style="background:${COL[a]}"></i><i style="background:${COL[b]}"></i></span>
+        <div class="tx"><b>${pEsc(D.colleges[a])} · ${pEsc(D.colleges[b])}</b></div><span class="v">${fmt(v)}</span></div>`; }).join(""); }
+  }
+  body.innerHTML = h; body.scrollTop = 0;
+}
+document.getElementById("pb").addEventListener("click", e => {
+  const r = e.target.closest("[data-go]"); if (!r) return;
+  const n = fullGraph().nodes.get(r.dataset.go); if (!n) return;
+  if (state.college !== null && state.college !== n.c) state.college = null;   // keep the college only if they belong to it
+  state.ego = n.id; render();
+});
+document.getElementById("pb").addEventListener("mouseover", e => {
+  const r = e.target.closest("[data-hl]"); if (!r) return;
+  const [k, v] = [r.dataset.hl.slice(0, 1), r.dataset.hl.slice(2)];
+  if (k === "p") { if (byId.has(v)) spot(n => n.id === v); } else spot(n => n.d === v);
+});
+document.getElementById("pb").addEventListener("mouseleave", () => applyEgo());
+const panel = document.getElementById("panel"), ibtn = document.getElementById("ibtn");
+function setPanel(open) {
+  panelOpen = open; panel.classList.toggle("open", open); ibtn.classList.toggle("open", open); ibtn.setAttribute("aria-expanded", open);
+  userZoomed = false; if (nodes.length) fit(innerWidth, innerHeight, 0);   // make room for the panel
+}
+ibtn.onclick = () => setPanel(!panelOpen);
+
 function legend(counts) {
   const lg = document.getElementById("lg"); lg.innerHTML = "";
-  D.colleges.map((n, i) => i).sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).forEach(i => {
+  const back = document.getElementById("lg-back"), title = document.getElementById("lg-title");
+  if (state.college === null) {                       // all colleges: hover spotlights, click drills in
+    title.textContent = "Colleges"; back.style.display = "none";
+    D.colleges.map((n, i) => i).sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).forEach(i => {
+      const b = document.createElement("button");
+      b.className = "lg";
+      b.innerHTML = `<i style="background:${COL[i]}"></i><span>${D.colleges[i]}</span><b>${(counts[i] || 0).toLocaleString()}</b>`;
+      b.onclick = () => { state.college = i; state.ego = null; state.dept = null; render(); };
+      b.onmouseenter = () => spot(n => n.c === i);
+      b.onmouseleave = () => applyEgo();
+      lg.appendChild(b);
+    });
+    return;
+  }
+  // inside a college: the legend lists its departments, with the same highlighting behaviour
+  title.textContent = "Departments"; back.style.display = "block";
+  back.onclick = () => { state.college = null; state.ego = null; state.dept = null; render(); };
+  const dc = {}; nodes.forEach(n => dc[n.d] = (dc[n.d] || 0) + 1);
+  Object.keys(dc).sort((a, b) => dc[b] - dc[a] || a.localeCompare(b)).forEach(d => {
     const b = document.createElement("button");
-    b.className = "lg" + (state.college === i ? " on" : state.college !== null ? " off" : "");
-    b.innerHTML = `<i style="background:${COL[i]}"></i><span>${D.colleges[i]}</span><b>${(counts[i] || 0).toLocaleString()}</b>`;
-    b.onclick = () => { state.college = state.college === i ? null : i; state.ego = null; render(); };
-    b.onmouseenter = () => spot(n => n.c === i);
-    b.onmouseleave = () => spot(null);
+    b.className = "lg" + (state.dept === d ? " on" : state.dept !== null ? " off" : "");
+    b.title = d;
+    b.innerHTML = `<i style="background:${curDeptClr[d] || COL[state.college]}"></i><span>${pEsc(d)}</span><b>${dc[d].toLocaleString()}</b>`;
+    b.onclick = () => { state.dept = state.dept === d ? null : d; legend(counts); applyEgo(); };
+    b.onmouseenter = () => spot(n => n.d === d);
+    b.onmouseleave = () => applyEgo();
     lg.appendChild(b);
   });
 }
@@ -332,6 +540,7 @@ qIn.addEventListener("keydown", e => {
 addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== qIn) { e.preventDefault(); qIn.focus(); } });
 { const q = new URLSearchParams(location.search);   // test hook: ?search=jiang[&enter]
   if (q.has("popup")) setTimeout(() => setPop(true), 60);   // test hook
+  if (q.has("panel")) setTimeout(() => setPanel(true), 60);   // test hook
   if (q.has("tipedge")) setTimeout(() => { const el = gH.selectAll("line").nodes()[+q.get("tipedge")];
     if (el) el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: 640, clientY: 300 })); }, 80);   // test hook
   if (q.has("search")) setTimeout(() => { qIn.value = q.get("search"); runSearch(); if (q.has("enter") && hits[0]) pick(hits[0]); }, 50); }
@@ -345,15 +554,31 @@ addEventListener("keydown", e => {
 
 // ---------- helpers ----------
 function deptShades(deptNames, hex) {
-  const base = d3.hsl(hex), n = deptNames.length, out = {};
-  const gcd = (a, b) => b ? gcd(b, a % b) : a;
-  let step = 1;
-  if (n > 3) { let best = 1e9; for (let k = 2; k < n; k++) if (gcd(k, n) === 1 && Math.abs(k - n * .38) < best) { best = Math.abs(k - n * .38); step = k; } }
-  deptNames.forEach((d, i) => {
-    const rank = (i * step) % n, t = n > 1 ? rank / (n - 1) - .5 : 0;
-    out[d] = d3.hsl(base.h + (rank % 2 ? 6 : -6), Math.min(1, Math.max(.2, base.s + ((rank % 3) - 1) * .07)),
-      Math.min(.78, Math.max(.3, base.l + t * .34))).formatHex();
-  });
+  // Distinct colours that stay in the college's colour family. Candidates are never more vivid than the college
+  // colour, stay in a mid lightness band, and spread over a hue range that starts at +-20deg and only widens
+  // (up to +-44deg) if the department count needs it. They are picked greedily so each new department is as far
+  // (CIELAB distance) from the ones already chosen as possible; the first (largest) department keeps the college colour.
+  const base = d3.hsl(hex), baseLab = d3.lab(base), n = deptNames.length, out = {};
+  const dist = (a, b) => Math.hypot(a.l - b.l, a.a - b.a, a.b - b.b), TARGET = 11;
+  let chosen = [];
+  for (const hr of [20, 26, 32, 38, 44]) {
+    const cands = [];
+    for (let i = -6; i <= 6; i++) for (let j = -3; j <= 3; j++) for (let k = 0; k < 3; k++) {
+      const l = Math.min(.74, Math.max(.34, base.l + (j < 0 ? .13 : .18) * j / 3));
+      const c = d3.hsl(base.h + i * hr / 6, Math.max(.25, base.s - .30 * k / 2), l);
+      cands.push({ hex: c.formatHex(), lab: d3.lab(c) });
+    }
+    chosen = [cands.reduce((a, b) => dist(a.lab, baseLab) <= dist(b.lab, baseLab) ? a : b)];
+    while (chosen.length < n) {
+      let best = null, bd = -1;
+      for (const c of cands) { const m = Math.min(...chosen.map(x => dist(c.lab, x.lab))); if (m > bd) { bd = m; best = c; } }
+      chosen.push(best);
+    }
+    let m = Infinity;
+    for (let x = 0; x < chosen.length; x++) for (let y = x + 1; y < chosen.length; y++) m = Math.min(m, dist(chosen[x].lab, chosen[y].lab));
+    if (n < 2 || m >= TARGET) break;
+  }
+  deptNames.forEach((d, i) => out[d] = chosen[i % chosen.length].hex);   // deptNames is ordered largest first
   return out;
 }
 function showTip(ev, n) {
@@ -386,7 +611,7 @@ function spot(pred) {
   gE.selectAll(".edge").classed("dim", d => bright && !(bright.has(d.source.id) && bright.has(d.target.id)));
 }
 function applyEgo() {
-  if (!state.ego) { gN.selectAll(".node").classed("pin", false); spot(null); gE.selectAll(".edge").classed("hi", false); return; }
+  if (!state.ego) { gN.selectAll(".node").classed("pin", false); spot(state.dept !== null ? (n => n.d === state.dept) : null); gE.selectAll(".edge").classed("hi", false); return; }
   const nb = new Set([state.ego, ...(adj.get(state.ego) || [])]);
   gN.selectAll(".node").classed("dim", d => !nb.has(d.id)).classed("pin", d => d.id === state.ego);
   gE.selectAll(".edge").classed("hi", d => d.source.id === state.ego || d.target.id === state.ego)
@@ -406,29 +631,31 @@ function render() {
   const inScope = r => (state.college === null || r[2] === state.college) && inPsi(r);
   nodes = data.n.filter(inScope).map(r => {
     const p = prevPos.get(r[0]);
-    return { id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], x: p ? p[0] : W / 2 + (Math.random() - .5) * 60, y: p ? p[1] : H / 2 + (Math.random() - .5) * 60 };
+    return { _new: !p, id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], x: p ? p[0] : W / 2 + (Math.random() - .5) * 60, y: p ? p[1] : H / 2 + (Math.random() - .5) * 60 };
   });
   byId = new Map(nodes.map(n => [n.id, n]));
   edges = (psi ? psi.e : data.e).filter(e => byId.has(e[0]) && byId.has(e[1])).map(e => ({ source: e[0], target: e[1], w: e[2], papers: e[3] || [], xc: byId.get(e[0]).c !== byId.get(e[1]).c }));
   adj = new Map(); edges.forEach(e => { [[e.source, e.target], [e.target, e.source]].forEach(([a, b]) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); }); });
   if (state.ego && !byId.has(state.ego)) state.ego = null;
+  if (state.college === null || state.ego || !nodes.some(n => n.d === state.dept)) state.dept = null;   // department focus only applies inside a college
 
   const counts = {}; data.n.filter(inPsi).forEach(r => counts[r[2]] = (counts[r[2]] || 0) + 1);
   if (!nodes.length) {            // nothing matches the current filters
     [gE, gH, gN, gL].forEach(g => g.selectAll("*").remove());
-    document.getElementById("s-n").textContent = "0"; document.getElementById("s-e").textContent = "0";
+    statsRender();
     document.getElementById("empty-t").textContent = psi ? "No PSI collaborators in " + PERIODS[state.block] : "Nothing to show";
     document.getElementById("empty-s").textContent = psi ? "PSI data begins in 2014. Try a later period." : "";
     document.getElementById("empty").classList.add("show");
-    legend(counts); crumbs(); filtersUI(); return;
+    legend(counts); crumbs(); filtersUI(); panelRender(); return;
   }
   document.getElementById("empty").classList.remove("show");
 
   // colours
   let clr;
   if (state.college !== null) {
-    const depts = [...new Set(nodes.map(n => n.d))].sort(), sh = deptShades(depts, COL[state.college]);
-    clr = n => sh[n.d];
+    const cnt = {}; nodes.forEach(n => cnt[n.d] = (cnt[n.d] || 0) + 1);
+    const depts = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b)), sh = deptShades(depts, COL[state.college]);   // biggest departments get the best-separated colours
+    curDeptClr = sh; clr = n => sh[n.d];
   } else clr = n => COL[n.c];
 
   // groups (clusters) + anchors
@@ -436,6 +663,7 @@ function render() {
   const keys = [...new Set(nodes.map(groupKey))].sort((a, b) => String(a).localeCompare(String(b)));
   const R = Math.min(W, H) * (state.college === null ? .44 : .38), anchor = new Map();
   keys.forEach((k, i) => { const a = 2 * Math.PI * i / keys.length - Math.PI / 2; anchor.set(k, { x: W / 2 + R * Math.cos(a), y: H / 2 + R * Math.sin(a) }); });
+  nodes.forEach(n => { if (n._new) { const a = anchor.get(groupKey(n)); n.x = a.x + (Math.random() - .5) * 60; n.y = a.y + (Math.random() - .5) * 60; } });
   groups = keys.map(k => ({ k, label: state.college === null ? D.colleges[k] : k, members: nodes.filter(n => groupKey(n) === k) }));
 
   const rS = d3.scaleSqrt().domain([1, Math.max(2, d3.max(nodes, n => n.p))]).range([3.5, 20]);
@@ -453,7 +681,7 @@ function render() {
   const nSel = gN.selectAll("circle").data(nodes, d => d.id).join("circle").attr("class", "node")
     .attr("r", d => d.r).attr("fill", clr)
     .on("mouseover", (ev, d) => showTip(ev, d)).on("mousemove", moveTip).on("mouseout", hideTip)
-    .on("click", (ev, d) => { ev.stopPropagation(); state.ego = state.ego === d.id ? null : d.id; crumbs(); applyEgo(); })
+    .on("click", (ev, d) => { ev.stopPropagation(); state.ego = state.ego === d.id ? null : d.id; crumbs(); applyEgo(); panelRender(); })
     .call(d3.drag().on("start", (e, d) => { if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
       .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
       .on("end", (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = d.fy = null; }));
@@ -462,7 +690,9 @@ function render() {
   labelSel.selectAll("title").remove(); labelSel.append("title").text(d => d.label);
 
   sim = d3.forceSimulation(nodes)
-    .force("link", d3.forceLink(edges).id(d => d.id).distance(d => d.xc ? 62 : (groupKey(d.source) === groupKey(d.target) ? 18 : 38)).strength(d => d.xc ? .03 : .28))
+    .force("link", d3.forceLink(edges).id(d => d.id)
+      .distance(d => d.xc ? 62 : groupKey(d.source) === groupKey(d.target) ? 18 : (state.college !== null ? lerp(38, 62, GROUP_BLEND) : 38))
+      .strength(d => d.xc ? .03 : groupKey(d.source) === groupKey(d.target) ? .28 : (state.college !== null ? lerp(.28, .03, GROUP_BLEND) : .28)))
     .force("charge", d3.forceManyBody().strength(-110))
     .force("x", d3.forceX(d => anchor.get(groupKey(d)).x).strength(.9))
     .force("y", d3.forceY(d => anchor.get(groupKey(d)).y).strength(.9))
@@ -477,11 +707,19 @@ function render() {
     .on("end", () => fit(W, H, 0));
 
   ticks = 0; userZoomed = false;
-  // ?settle runs the layout to completion up-front (used for screenshots/tests)
-  if (new URLSearchParams(location.search).has("settle")) { sim.stop(); for (let i = 0; i < 320; i++) sim.tick(); sim.restart(); sim.alpha(0.001); fit(W, H, 0); }
-  legend(counts); crumbs(); applyEgo(); filtersUI();
-  document.getElementById("s-n").textContent = nodes.length.toLocaleString();
-  document.getElementById("s-e").textContent = edges.length.toLocaleString();
+  // First load / new period: compute the layout before painting and fade in the settled network
+  // (no "explosion"). Moving between levels keeps the animation, since those nodes already have positions.
+  const fresh = nodes.filter(n => n._new).length > nodes.length * .5;
+  if (fresh || new URLSearchParams(location.search).has("settle")) {
+    root.style("transition", "none").style("opacity", 0);
+    sim.stop(); for (let i = 0; i < 220; i++) sim.tick();
+    sim.on("tick").call(sim);                 // draw the settled positions once
+    fit(W, H, 0);
+    requestAnimationFrame(() => requestAnimationFrame(() => root.style("transition", "opacity .5s ease").style("opacity", 1)));
+    sim.alpha(.02).restart();                 // let it relax gently
+  } else root.style("opacity", 1);
+  legend(counts); crumbs(); applyEgo(); filtersUI(); panelRender();
+  statsRender();
 }
 // scale + centre the network inside the free area (clear of the header, legend and stats)
 function fit(W, H, ms) {
@@ -489,7 +727,7 @@ function fit(W, H, ms) {
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   nodes.forEach(n => { x0 = Math.min(x0, n.x - n.r); x1 = Math.max(x1, n.x + n.r); y0 = Math.min(y0, n.y - n.r); y1 = Math.max(y1, n.y + n.r); });
   labelSel.each(function () { const b = this.getBBox(); x0 = Math.min(x0, b.x); x1 = Math.max(x1, b.x + b.width); y0 = Math.min(y0, b.y); y1 = Math.max(y1, b.y + b.height); });
-  const padL = W > 760 ? 290 : 24, padR = 24, padT = 24, padB = W > 760 ? 90 : 300;
+  const padL = W > 760 ? 290 : 24, padR = panelOpen && W > 760 ? 380 : 24, padT = 24, padB = W > 760 ? 90 : 300;
   const aw = W - padL - padR, ah = H - padT - padB;
   const k = Math.min(aw / (x1 - x0), ah / (y1 - y0), 1.4);
   const tx = padL + (aw - k * (x1 - x0)) / 2 - k * x0, ty = padT + (ah - k * (y1 - y0)) / 2 - k * y0;
@@ -507,7 +745,7 @@ function placeLabels(W, H) {
   });
 }
 addEventListener("resize", () => render());
-render();
+requestAnimationFrame(() => setTimeout(render, 0));   // let the header / legend paint before the layout is computed
 </script>
 </body>
 </html>
