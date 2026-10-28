@@ -217,6 +217,7 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 #tip .c { display: flex; align-items: center; gap: 7px; margin-top: 4px; font-size: 12px; color: var(--muted); }
 #tip .c i { width: 8px; height: 8px; border-radius: 50%; }
 #tip .d { font-size: 12px; color: var(--faint); margin-top: 2px; }
+#tip .cf { font-size: 12px; color: #e8d9a8; margin-top: 6px; }
 #tip .r { display: flex; justify-content: space-between; gap: 18px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
   font-size: 12px; color: var(--muted); }
 #tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -262,8 +263,8 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
           <button class="opt" id="opt-psi" role="switch" aria-checked="false">
             <div><b>PSI collaborators</b><small>Faculty with Plant Sciences Initiative papers, and their PSI co-authorships. Data covers 2014 – 2025.</small></div><span class="sw"></span>
           </button>
-          <button class="opt" disabled>
-            <div><b>CFEP members</b><small>Coming soon</small></div><span class="sw"></span>
+          <button class="opt" id="opt-cfep" role="switch" aria-checked="false">
+            <div><b>CFEP members</b><small>Chancellor's Faculty Excellence Program: faculty in a CFEP cluster. They are drawn as diamonds.</small></div><span class="sw"></span>
           </button>
         </div>
       </div>
@@ -292,9 +293,9 @@ const D = __DATA__;
 // One colour per college (fixed by entity, validated for the dark surface).
 const COL = ["#3987e5","#d95926","#199e70","#c98500","#d55181","#9085e9","#008300","#e66767","#1b98b0","#8f9a1c"];
 const PERIODS = {"2006":"2006 – 2010","2011":"2011 – 2015","2016":"2016 – 2020","2021":"2021 – 2025"};
-const state = { block: "2021", college: null, ego: null, psi: false, dept: null };
+const state = { block: "2021", college: null, ego: null, psi: false, cfep: false, dept: null };
 { const q = new URLSearchParams(location.search);   // optional deep-link: ?college=0&ego=<id>&block=2016
-  if (q.has("college")) state.college = +q.get("college"); if (q.has("ego")) state.ego = q.get("ego"); if (q.has("block")) state.block = q.get("block"); if (q.has("psi")) state.psi = true; if (q.has("dept")) state.dept = q.get("dept"); }
+  if (q.has("college")) state.college = +q.get("college"); if (q.has("ego")) state.ego = q.get("ego"); if (q.has("block")) state.block = q.get("block"); if (q.has("psi")) state.psi = true; if (q.has("cfep")) state.cfep = true; if (q.has("dept")) state.dept = q.get("dept"); }
 
 const svg = d3.select("#svg");
 const root = svg.append("g");
@@ -352,12 +353,12 @@ function statsRender() {
 // Whole-block graph (ignores the college drilldown) so the panel can describe cross-college ties
 const gCache = {};
 function fullGraph() {
-  const key = state.block + "|" + state.psi;
+  const key = state.block + "|" + state.psi + "|" + state.cfep;
   if (gCache[key]) return gCache[key];
   const data = D.blocks[state.block], psi = state.psi ? (D.psi[state.block] || { n: {}, e: [] }) : null;
   const nodes = new Map();
-  data.n.forEach(r => { if (psi && psi.n[r[0]] === undefined) return;
-    nodes.set(r[0], { id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4] }); });
+  data.n.forEach(r => { if ((psi && psi.n[r[0]] === undefined) || (state.cfep && r[5] !== 1)) return;
+    nodes.set(r[0], { id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], f: r[5] === 1, k: r[6] }); });
   const edges = (psi ? psi.e : data.e).filter(e => nodes.has(e[0]) && nodes.has(e[1]));
   const nb = new Map(), add = (a, b, w) => { if (!nb.has(a)) nb.set(a, new Map()); nb.get(a).set(b, w); };
   edges.forEach(e => { add(e[0], e[1], e[2]); add(e[1], e[0], e[2]); });
@@ -380,13 +381,14 @@ function panelRender() {
     const n = g.nodes.get(state.ego), nbs = [...(g.nb.get(n.id) || [])].map(([id, w]) => ({ n: g.nodes.get(id), w })).sort((a, b) => b.w - a.w);
     pt.textContent = n.nm; ps.innerHTML = `<i style="background:${COL[n.c]}"></i>${pEsc(D.colleges[n.c])} · ${pEsc(n.d)}`;
     const reach = new Set(nbs.map(x => x.n.c)), same = nbs.filter(x => x.n.c === n.c).length;
+    if (n.f) h += `<div class="pnote" style="padding-top:12px">◆ CFEP cluster: <b style="color:var(--text)">${pEsc(D.cfep[n.k] || "")}</b></div>`;
     h += `<div class="grid3"><div><b>${fmt(n.p)}</b><small>${state.psi ? metric : metric.toLowerCase()}</small></div><div><b>${nbs.length}</b><small>collaborators</small></div><div><b>${reach.size || 0}</b><small>${reach.size === 1 ? "college" : "colleges"} reached</small></div></div>`;
     if (nbs.length) {
       h += `<div class="pnote">${same} in ${pEsc(D.colleges[n.c])}, ${nbs.length - same} in other colleges.</div>`;
       const max = nbs[0].w;
       h += `<h3>Collaborators <small>shared papers</small></h3>` + nbs.map(x => `<div class="li p" data-go="${pEsc(x.n.id)}" data-hl="p:${pEsc(x.n.id)}" style="--c:${COL[x.n.c]}">
         <div class="tx"><b>${pEsc(x.n.nm)}</b><small>${pEsc(x.n.d)}${x.n.c !== n.c ? " · " + pEsc(D.colleges[x.n.c]) : ""}</small></div><span class="v">${x.w}</span></div>`).join("");
-    } else h += `<div class="pnote">No collaborations in ${PERIODS[state.block]}.</div>`;
+    } else h += `<div class="pnote">${state.psi || state.cfep ? "No collaborations with anyone else inside the current filters." : "No collaborations in " + PERIODS[state.block] + "."}</div>`;
   } else if (state.college !== null) {                               // ---- college
     const c = state.college, people = [...g.nodes.values()].filter(n => n.c === c).sort((a, b) => b.p - a.p);
     const dep = new Map();
@@ -469,23 +471,26 @@ function legend(counts) {
   });
 }
 // ---------- filters ----------
-const fbtn = document.getElementById("fbtn"), fpop = document.getElementById("fpop"), optPsi = document.getElementById("opt-psi");
+const fbtn = document.getElementById("fbtn"), fpop = document.getElementById("fpop"), optPsi = document.getElementById("opt-psi"), optCfep = document.getElementById("opt-cfep");
 function filtersUI() {
-  const active = [state.psi && "PSI"].filter(Boolean);
+  const active = [state.psi && "psi", state.cfep && "cfep"].filter(Boolean);
   const badge = document.getElementById("fcount");
   badge.textContent = active.length; badge.classList.toggle("show", active.length > 0);
   optPsi.classList.toggle("on", state.psi); optPsi.setAttribute("aria-checked", state.psi);
+  optCfep.classList.toggle("on", state.cfep); optCfep.setAttribute("aria-checked", state.cfep);
   const chips = document.getElementById("chips"); chips.innerHTML = "";
-  if (state.psi) {
-    const c = document.createElement("button"); c.className = "chip"; c.innerHTML = "PSI only <span>✕</span>"; c.title = "Remove filter";
-    c.onclick = () => { state.psi = false; render(); }; chips.appendChild(c);
-  }
+  [["psi", "PSI only"], ["cfep", "CFEP only"]].forEach(([k, label]) => {
+    if (!state[k]) return;
+    const c = document.createElement("button"); c.className = "chip"; c.innerHTML = label + " <span>✕</span>"; c.title = "Remove filter";
+    c.onclick = () => { state[k] = false; state.ego = null; render(); }; chips.appendChild(c);
+  });
 }
 function setPop(open) { fpop.classList.toggle("show", open); fbtn.classList.toggle("open", open); fbtn.setAttribute("aria-expanded", open); }
 fbtn.onclick = e => { e.stopPropagation(); setPop(!fpop.classList.contains("show")); };
 fpop.onclick = e => e.stopPropagation();
 document.addEventListener("click", () => setPop(false));
 optPsi.onclick = () => { state.psi = !state.psi; state.ego = null; render(); };
+optCfep.onclick = () => { state.cfep = !state.cfep; state.ego = null; render(); };
 
 // ---------- search ----------
 const qIn = document.getElementById("q"), resBox = document.getElementById("results");
@@ -501,7 +506,7 @@ function runSearch() {
   if (!t) { closeResults(); return; }
   const words = t.split(/\s+/);
   const psiSet = state.psi ? (D.psi[state.block] || { n: {} }).n : null;
-  hits = searchIndex().filter(x => (!psiSet || psiSet[x.r[0]] !== undefined) && words.every(w => x.k.includes(w)))
+  hits = searchIndex().filter(x => (!psiSet || psiSet[x.r[0]] !== undefined) && (!state.cfep || x.r[5] === 1) && words.every(w => x.k.includes(w)))
     .map(x => ({ r: x.r, s: (x.k.startsWith(t) ? 0 : x.k.split(/\s+/).some(w => w.startsWith(words[0])) ? 1 : 2) }))
     .sort((a, b) => a.s - b.s || b.r[4] - a.r[4]).slice(0, 8).map(x => x.r);
   hi = 0; drawResults(t);
@@ -587,6 +592,7 @@ function showTip(ev, n) {
   const deg = adj.get(n.id)?.size || 0;
   tip.innerHTML = `<div class="n">${n.nm}</div><div class="c"><i style="background:${COL[n.c]}"></i>${D.colleges[n.c]}</div>` +
     (n.d ? `<div class="d">${n.d}</div>` : "") +
+    (n.f ? `<div class="cf">◆ CFEP · ${pEsc(D.cfep[n.k] || "")}</div>` : "") +
     `<div class="r"><span>${state.psi ? "PSI papers" : "Publications"}</span><b>${n.p}</b></div><div class="r" style="margin-top:6px;padding-top:6px"><span>Collaborators</span><b>${deg}</b></div>`;
   tip.style.display = "block"; moveTip(ev);
 }
@@ -630,10 +636,11 @@ function render() {
   const W = innerWidth, H = innerHeight, data = D.blocks[state.block];
   const psi = state.psi ? (D.psi[state.block] || { n: {}, e: [] }) : null;   // PSI filter: people + PSI co-authorships only
   const inPsi = r => !psi || psi.n[r[0]] !== undefined;
-  const inScope = r => (state.college === null || r[2] === state.college) && inPsi(r);
+  const inCfep = r => !state.cfep || r[5] === 1;                // CFEP filter: members of a CFEP cluster only
+  const inScope = r => (state.college === null || r[2] === state.college) && inPsi(r) && inCfep(r);
   nodes = data.n.filter(inScope).map(r => {
     const p = prevPos.get(r[0]);
-    return { _new: !p, id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], x: p ? p[0] : W / 2 + (Math.random() - .5) * 60, y: p ? p[1] : H / 2 + (Math.random() - .5) * 60 };
+    return { _new: !p, id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], f: r[5] === 1, k: r[6], x: p ? p[0] : W / 2 + (Math.random() - .5) * 60, y: p ? p[1] : H / 2 + (Math.random() - .5) * 60 };
   });
   byId = new Map(nodes.map(n => [n.id, n]));
   edges = (psi ? psi.e : data.e).filter(e => byId.has(e[0]) && byId.has(e[1])).map(e => ({ source: e[0], target: e[1], w: e[2], papers: e[3] || [], xc: byId.get(e[0]).c !== byId.get(e[1]).c }));
@@ -641,12 +648,13 @@ function render() {
   if (state.ego && !byId.has(state.ego)) state.ego = null;
   if (state.college === null || state.ego || !nodes.some(n => n.d === state.dept)) state.dept = null;   // department focus only applies inside a college
 
-  const counts = {}; data.n.filter(inPsi).forEach(r => counts[r[2]] = (counts[r[2]] || 0) + 1);
+  const counts = {}; data.n.filter(r => inPsi(r) && inCfep(r)).forEach(r => counts[r[2]] = (counts[r[2]] || 0) + 1);
   if (!nodes.length) {            // nothing matches the current filters
     [gE, gH, gN, gL].forEach(g => g.selectAll("*").remove());
     statsRender();
-    document.getElementById("empty-t").textContent = psi ? "No PSI collaborators in " + PERIODS[state.block] : "Nothing to show";
-    document.getElementById("empty-s").textContent = psi ? "PSI data begins in 2014. Try a later period." : "";
+    const on = [state.psi && "PSI", state.cfep && "CFEP"].filter(Boolean);
+    document.getElementById("empty-t").textContent = on.length ? "No " + on.join(" + ") + " faculty in " + PERIODS[state.block] : "Nothing to show";
+    document.getElementById("empty-s").textContent = state.psi && psi && !Object.keys(psi.n).length ? "PSI data begins in 2014. Try a later period." : (on.length ? "Try another period or remove a filter." : "");
     document.getElementById("empty").classList.add("show");
     legend(counts); crumbs(); filtersUI(); panelRender(); return;
   }
@@ -680,8 +688,11 @@ function render() {
     .on("mousemove", moveTip)
     .on("mouseout", function (ev, d) { eSel.filter(x => x === d).classed("hi", false); applyEgoEdge(d); hideTip(); });
   // nodes
-  const nSel = gN.selectAll("circle").data(nodes, d => d.id).join("circle").attr("class", "node")
-    .attr("r", d => d.r).attr("fill", clr)
+  const SVGNS = "http://www.w3.org/2000/svg", diamond = r => `M0,${-1.3 * r}L${1.05 * r},0L0,${1.3 * r}L${-1.05 * r},0Z`;
+  const nSel = gN.selectAll(".node").data(nodes, d => d.id)
+    .join(enter => enter.append(d => document.createElementNS(SVGNS, d.f ? "path" : "circle")))   // CFEP members are diamonds
+    .attr("class", "node").attr("fill", clr)
+    .each(function (d) { const el = d3.select(this); if (d.f) el.attr("d", diamond(d.r)); else el.attr("r", d.r); })
     .on("mouseover", (ev, d) => showTip(ev, d)).on("mousemove", moveTip).on("mouseout", hideTip)
     .on("click", (ev, d) => { ev.stopPropagation(); state.ego = state.ego === d.id ? null : d.id; crumbs(); applyEgo(); panelRender(); })
     .call(d3.drag().on("start", (e, d) => { if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
@@ -698,11 +709,11 @@ function render() {
     .force("charge", d3.forceManyBody().strength(-110))
     .force("x", d3.forceX(d => anchor.get(groupKey(d)).x).strength(.9))
     .force("y", d3.forceY(d => anchor.get(groupKey(d)).y).strength(.9))
-    .force("collide", d3.forceCollide(d => d.r + 3))
+    .force("collide", d3.forceCollide(d => (d.f ? d.r * 1.3 : d.r) + 3))   // diamonds are taller than circles of the same size
     .alphaDecay(.03).on("tick", () => {
       eSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
       hSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-      nSel.attr("cx", d => d.x).attr("cy", d => d.y);
+      nSel.attr("transform", d => `translate(${d.x},${d.y})`);
       placeLabels(W, H);
       if (++ticks % 15 === 0) fit(W, H, 0);
     })

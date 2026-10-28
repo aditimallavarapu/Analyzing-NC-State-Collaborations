@@ -8,6 +8,8 @@ INPUT (same folder):
   network_data/edges_YYYY.csv   (from 02_build_graphs.py)
   psi_net.json                  (PSI collaboration data, written by 03_build_html.py;
                                  optional - the PSI filter is empty without it)
+  CFEP_2026_PARTNERS - CFEP_Personnel_Oct_2025_By_Cluster.csv
+                                (CFEP personnel by cluster; optional - without it no one is a CFEP member)
   ui_template.html              (the page; contains the __DATA__ placeholder)
 
 OUTPUT (same folder):
@@ -30,6 +32,7 @@ import os
 NET_DIR = "network_data"
 TEMPLATE = "ui_template.html"
 PSI_JSON = "psi_net.json"
+CFEP_CSV = "CFEP_2026_PARTNERS - CFEP_Personnel_Oct_2025_By_Cluster.csv"
 OUTPUT = "ncstate_research_networks_new.html"
 
 # key = block start year; the page's period dropdown is built from these
@@ -54,12 +57,30 @@ COLLEGE_INDEX = {full: i for i, (full, _) in enumerate(COLLEGES)}
 MAX_PAPERS = 3
 
 
+def load_cfep(path):
+    """CFEP personnel sheet -> (list of cluster names, {unity id: cluster index}).
+    Rows without a Unity ID (open searches) are skipped."""
+    if not os.path.exists(path):
+        print(f"  WARNING: {path} not found - no one will be marked as a CFEP member")
+        return [], {}
+    clusters, members = [], {}
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        for r in csv.DictReader(f):
+            uid, cluster = (r.get("Unity ID") or "").strip().lower(), " ".join((r.get("Cluster") or "").split())
+            if not uid or not cluster:
+                continue
+            if cluster not in clusters:
+                clusters.append(cluster)
+            members[uid] = clusters.index(cluster)
+    return clusters, members
+
+
 def read(path):
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
-def build_block(years):
+def build_block(years, cfep):
     people, pairs = {}, {}
     for yr in years:
         for r in read(os.path.join(NET_DIR, f"nodes_{yr}.csv")):
@@ -77,7 +98,9 @@ def build_block(years):
                 if t.strip() and t not in e[1] and len(e[1]) < MAX_PAPERS:
                     e[1].append(t)
     keep = {i for i, p in people.items() if p["p"] > 0}
-    nodes = [[i, p["nm"], p["c"], p["d"], p["p"], p["f"]] for i, p in people.items() if i in keep]
+    # node row: [id, name, college, dept, publications, is_cfep, cfep_cluster_index (-1 if none)]
+    nodes = [[i, p["nm"], p["c"], p["d"], p["p"], int(i.lower() in cfep), cfep.get(i.lower(), -1)]
+             for i, p in people.items() if i in keep]
     edges = [[a, b, w, papers] for (a, b), (w, papers) in pairs.items() if a in keep and b in keep]
     return {"n": nodes, "e": edges}
 
@@ -106,14 +129,16 @@ def build_psi_block(psi_net, years, block):
 
 
 def main():
+    cfep_clusters, cfep = load_cfep(CFEP_CSV)
     blocks = {}
     for start, years in BLOCKS.items():
         missing = [y for y in years if not os.path.exists(os.path.join(NET_DIR, f"nodes_{y}.csv"))]
         if missing:
             raise SystemExit(f"Missing {NET_DIR}/nodes_YYYY.csv for {missing} - run 02_build_graphs.py first")
-        blocks[str(start)] = build_block(years)
+        blocks[str(start)] = build_block(years, cfep)
         b = blocks[str(start)]
-        print(f"  {start}-{years[-1]}: {len(b['n']):,} faculty, {len(b['e']):,} collaborations")
+        print(f"  {start}-{years[-1]}: {len(b['n']):,} faculty, {len(b['e']):,} collaborations, "
+              f"{sum(n[5] for n in b['n'])} CFEP members")
 
     psi_net = {}
     if os.path.exists(PSI_JSON):
@@ -125,7 +150,7 @@ def main():
     for start in psi:
         print(f"  PSI {start}: {len(psi[start]['n']):,} faculty, {len(psi[start]['e']):,} collaborations")
 
-    data = {"colleges": [short for _, short in COLLEGES], "blocks": blocks, "psi": psi}
+    data = {"colleges": [short for _, short in COLLEGES], "cfep": cfep_clusters, "blocks": blocks, "psi": psi}
     with open(TEMPLATE, encoding="utf-8") as f:
         html = f.read()
     if "__DATA__" not in html:
