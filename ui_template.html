@@ -192,6 +192,7 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 .lg { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px; background: none; border: 0;
   border-radius: 8px; color: var(--muted); font: 500 13px var(--font); cursor: pointer; text-align: left; transition: background .12s, color .12s, opacity .12s; }
 .lg:hover { background: rgba(var(--ink),.06); color: var(--text); }
+.lg.ro { cursor: default; }
 .lg.on { color: var(--text); background: rgba(var(--ink),.08); }
 .lg.off { opacity: .35; }
 .lg i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -527,10 +528,9 @@ function legend(counts) {
   const dc = {}; nodes.forEach(n => dc[n.d] = (dc[n.d] || 0) + 1);
   Object.keys(dc).sort((a, b) => dc[b] - dc[a] || a.localeCompare(b)).forEach(d => {
     const b = document.createElement("button");
-    b.className = "lg" + (state.dept === d ? " on" : state.dept !== null ? " off" : "");
+    b.className = "lg ro";                      // department rows are for hovering only: clicking does nothing
     b.title = d;
     b.innerHTML = `<i style="background:${curDeptClr[d] || COL[state.college]}"></i><span>${pEsc(d)}</span><b>${dc[d].toLocaleString()}</b>`;
-    b.onclick = () => { state.dept = state.dept === d ? null : d; legend(counts); applyEgo(); };
     b.onmouseenter = () => spot(n => n.d === d);
     b.onmouseleave = () => applyEgo();
     lg.appendChild(b);
