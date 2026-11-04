@@ -205,14 +205,17 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 .edge.dim { stroke-opacity: .015; }
 .edge { transition: stroke-opacity .15s; }
 .hit { stroke: transparent; stroke-width: 9px; fill: none; cursor: pointer; }
-.node { stroke: var(--bg); stroke-width: 1.2; transition: opacity .15s; cursor: pointer; }
+.node { stroke: var(--bg); stroke-width: 1.2; vector-effect: non-scaling-stroke; transition: opacity .15s, fill .6s ease; cursor: pointer; }   /* unit-size shapes scaled to their radius, so the outline stays 1.2px */
+.off { display: none; }
+.moving .hit { pointer-events: none; }
 .node.dim { opacity: .1; }
 .node.pin { stroke: #fff; stroke-width: 2.5; }
 .node.sub { opacity: .45; }
 .node.focus { opacity: 1; stroke: #fff; stroke-width: 3.5; filter: drop-shadow(0 0 7px rgba(255,255,255,.75)); }
 .edge.focus { stroke-opacity: 1; stroke-width: 3.5px; }
 .glabel { font: 600 calc(13px / var(--k, 1)) var(--font); fill: var(--muted); text-anchor: middle; pointer-events: none;
-  paint-order: stroke; stroke: var(--bg); stroke-width: calc(4px / var(--k, 1)); stroke-linejoin: round; }
+  paint-order: stroke; stroke: var(--bg); stroke-width: calc(4px / var(--k, 1)); stroke-linejoin: round; transition: opacity .3s ease; }
+.glabel.pre, .glabel.old { opacity: 0; }
 
 /* tooltip */
 #tip { position: fixed; z-index: 20; pointer-events: none; display: none; min-width: 190px; max-width: 320px; padding: 12px 14px;
@@ -310,14 +313,11 @@ svg.call(zoom).on("dblclick.zoom", null);
 
 const tip = document.getElementById("tip");
 let sim = null, nodes = [], edges = [], byId = new Map(), adj = new Map(), groupKey = null, labelSel = null, groups = [];
-const prevPos = new Map();
-const layoutCache = new Map();    // view key -> {id: [x, y]}: a view we have already laid out is reused instead of recalculated
-let curViewKey = null, morphing = false, prevEdgeCount = 0;
 // How strongly departments hold together inside a college view. 0 = departments are linked as loosely as ordinary
 // co-authors (old behaviour); 1 = as separated as colleges are in the all-colleges view. Currently 3/4 of the way.
 const GROUP_BLEND = .75, lerp = (a, b, t) => a + (b - a) * t;
 let focusId = null;   // collaborator currently hovered in the Insights panel while a person is selected
-let rendered = false, morphRun = 0, ticks = 0, userZoomed = false, panelOpen = false, curDeptClr = {};
+let rendered = false, userZoomed = false, panelOpen = false, curDeptClr = {};
 
 // ---------- controls ----------
 const sel = document.getElementById("period");
@@ -655,190 +655,260 @@ function applyEgo() {
 // after hovering an edge, put its ego-mode highlight back
 function applyEgoEdge(d) { if (state.ego) gE.selectAll(".edge").filter(x => x === d).classed("hi", d.source.id === state.ego || d.target.id === state.ego); }
 
-// ---------- render ----------
-function render() {
-  if (sim) sim.stop();
-  nodes.forEach(n => prevPos.set(n.id, [n.x, n.y]));
-  if (curViewKey && !morphing && nodes.length) layoutCache.set(curViewKey, new Map(nodes.map(n => [n.id, [n.x, n.y]])));   // remember where this view ended up
-  prevEdgeCount = edges.length;
-  const prevIds = new Set(nodes.map(n => n.id));          // what was on screen before this render
-  const W = innerWidth, H = innerHeight, data = D.blocks[state.block];
-  const psi = state.psi ? (D.psi[state.block] || { n: {}, e: [] }) : null;   // PSI filter: people + PSI co-authorships only
-  const inPsi = r => !psi || psi.n[r[0]] !== undefined;
-  const inCfep = r => !state.cfep || r[5] === 1;                // CFEP filter: members of a CFEP cluster only
-  const inScope = r => (state.college === null || r[2] === state.college) && inPsi(r) && inCfep(r);
-  nodes = data.n.filter(inScope).map(r => {
-    const p = prevPos.get(r[0]);
-    return { _new: !p, _enter: !prevIds.has(r[0]), id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], f: r[5] === 1, k: r[6], x: p ? p[0] : W / 2 + (Math.random() - .5) * 60, y: p ? p[1] : H / 2 + (Math.random() - .5) * 60 };
+// ---------- the scene ----------
+// Everything for one period (and filter set) is drawn ONCE: every person and every line, grouped by college.
+// Changing the view (all colleges <-> a college) never creates or deletes anything; it shows/hides groups and
+// glides the nodes that stay on screen. Every frame is computed from "where things are now" to "where they end up",
+// so clicking again in the middle of a move simply starts a new move from wherever things are.
+const SVGNS = "http://www.w3.org/2000/svg", NGROUP = 11;   // line groups: 0..9 = inside one college, 10 = between colleges
+let scene = null, viewShown, anim = 0, animating = false, nodeG = [], edgeG = [], hitG = [];
+const layoutCache = new Map();    // "scene|view|W|H" -> laid-out view; a view is calculated once and then reused
+const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+const jit = (id, salt) => (hash(id + salt) % 10000) / 10000 - .5;        // deterministic "random" in [-.5, .5): the same layout every time
+const sceneKey = () => [state.block, state.psi, state.cfep].join("|");
+const diamondPath = "M0,-1.3L1.05,0L0,1.3L-1.05,0Z";
+
+function makeScene() {
+  const data = D.blocks[state.block], psi = state.psi ? (D.psi[state.block] || { n: {}, e: [] }) : null;   // PSI filter: people + PSI co-authorships only
+  const all = data.n.filter(r => (!psi || psi.n[r[0]] !== undefined) && (!state.cfep || r[5] === 1))
+    .map(r => ({ id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], f: r[5] === 1, k: r[6], x: 0, y: 0, r: 5, g: r[2] }));
+  const byAll = new Map(all.map(n => [n.id, n]));
+  const edgesAll = (psi ? psi.e : data.e).filter(e => byAll.has(e[0]) && byAll.has(e[1])).map(e => {
+    const s = byAll.get(e[0]), t = byAll.get(e[1]); return { source: s, target: t, w: e[2], papers: e[3] || [], xc: s.c !== t.c, g: s.c !== t.c ? 10 : s.c };
   });
-  byId = new Map(nodes.map(n => [n.id, n]));
-  edges = (psi ? psi.e : data.e).filter(e => byId.has(e[0]) && byId.has(e[1])).map(e => ({ source: e[0], target: e[1], w: e[2], papers: e[3] || [], xc: byId.get(e[0]).c !== byId.get(e[1]).c }));
-  adj = new Map(); edges.forEach(e => { [[e.source, e.target], [e.target, e.source]].forEach(([a, b]) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); }); });
-  if (state.ego && !byId.has(state.ego)) state.ego = null;
-  if (state.college === null || state.ego || !nodes.some(n => n.d === state.dept)) state.dept = null;   // department focus only applies inside a college
+  const byCol = d3.range(10).map(c => all.filter(n => n.c === c)), byG = d3.range(NGROUP).map(g => edgesAll.filter(e => e.g === g));
+  const counts = {}; all.forEach(n => counts[n.c] = (counts[n.c] || 0) + 1);
+  return { key: sceneKey(), all, byAll, edgesAll, byCol, byG, counts, wMax: d3.max(edgesAll, e => e.w) || 1 };
+}
 
-  const counts = {}; data.n.filter(r => inPsi(r) && inCfep(r)).forEach(r => counts[r[2]] = (counts[r[2]] || 0) + 1);
-  if (!nodes.length) {            // nothing matches the current filters
-    [gE, gH, gN, gL].forEach(g => g.selectAll("*").remove());
-    statsRender();
-    const on = [state.psi && "PSI", state.cfep && "CFEP"].filter(Boolean);
-    document.getElementById("empty-t").textContent = on.length ? "No " + on.join(" + ") + " faculty in " + PERIODS[state.block] : "Nothing to show";
-    document.getElementById("empty-s").textContent = state.psi && psi && !Object.keys(psi.n).length ? "PSI data begins in 2014. Try a later period." : (on.length ? "Try another period or remove a filter." : "");
-    document.getElementById("empty").classList.add("show");
-    legend(counts); crumbs(); filtersUI(); panelRender(); return;
+function buildDom() {
+  [gE, gH, gN, gL].forEach(g => g.selectAll("*").remove());
+  const wS = d3.scaleLinear().domain([1, Math.max(2, scene.wMax)]).range([.8, 4]);
+  edgeG = d3.range(NGROUP).map(() => gE.append("g").attr("class", "eg off"));
+  hitG = d3.range(NGROUP).map(() => gH.append("g").attr("class", "hg off"));
+  nodeG = d3.range(10).map(() => gN.append("g").attr("class", "ng off"));
+  for (let g = 0; g < NGROUP; g++) {
+    edgeG[g].selectAll("line").data(scene.byG[g]).enter().append("line").attr("class", "edge").attr("stroke-width", d => wS(d.w)).each(function (d) { d.el = this; });
+    hitG[g].selectAll("line").data(scene.byG[g]).enter().append("line").attr("class", "hit").each(function (d) { d.hel = this; })
+      .on("mouseover", (ev, d) => { d3.select(d.el).classed("hi", true); showEdgeTip(ev, d); })
+      .on("mousemove", moveTip)
+      .on("mouseout", (ev, d) => { d3.select(d.el).classed("hi", false); applyEgoEdge(d); hideTip(); });
   }
-  document.getElementById("empty").classList.remove("show");
+  for (let c = 0; c < 10; c++) {
+    nodeG[c].selectAll(".node").data(scene.byCol[c], d => d.id).enter()
+      .append(d => document.createElementNS(SVGNS, d.f ? "path" : "circle"))                  // CFEP members are diamonds
+      .attr("class", "node")
+      .each(function (d) { d.el = this; if (d.f) this.setAttribute("d", diamondPath); else this.setAttribute("r", 1); })   // unit shapes, sized by scale()
+      .on("mouseover", (ev, d) => showTip(ev, d)).on("mousemove", moveTip).on("mouseout", hideTip)
+      .on("click", (ev, d) => { ev.stopPropagation(); state.ego = state.ego === d.id ? null : d.id; crumbs(); applyEgo(); panelRender(); })
+      .call(d3.drag()
+        .on("start", (e, d) => { if (animating || !sim) return; if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+        .on("drag", (e, d) => { if (!animating) { d.fx = e.x; d.fy = e.y; } })
+        .on("end", (e, d) => { if (!e.active && sim) sim.alphaTarget(0); d.fx = d.fy = null; }));
+  }
+}
 
-  // colours
-  let clr;
-  if (state.college !== null) {
-    const cnt = {}; nodes.forEach(n => cnt[n.d] = (cnt[n.d] || 0) + 1);
-    const depts = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b)), sh = deptShades(depts, COL[state.college]);   // biggest departments get the best-separated colours
-    curDeptClr = sh; clr = n => sh[n.d];
-  } else clr = n => COL[n.c];
+// forces shared by the layout calculation and the live (draggable) simulation; nodes need .g (cluster key) and .r
+function makeSim(ns, links, anchor, view) {
+  return d3.forceSimulation(ns)
+    .force("link", d3.forceLink(links).id(d => d.id)
+      .distance(d => d.xc ? 62 : d.source.g === d.target.g ? 18 : (view !== null ? lerp(38, 62, GROUP_BLEND) : 38))
+      .strength(d => d.xc ? .03 : d.source.g === d.target.g ? .28 : (view !== null ? lerp(.28, .03, GROUP_BLEND) : .28)))
+    .force("charge", d3.forceManyBody().strength(-110))
+    .force("x", d3.forceX(d => anchor.get(d.g).x).strength(.9))
+    .force("y", d3.forceY(d => anchor.get(d.g).y).strength(.9))
+    .force("collide", d3.forceCollide(d => (d.f ? d.r * 1.3 : d.r) + 3))   // diamonds are taller than circles of the same size
+    .alphaDecay(.03);
+}
 
-  // groups (clusters) + anchors
-  groupKey = state.college === null ? n => n.c : n => n.d;
-  const keys = [...new Set(nodes.map(groupKey))].sort((a, b) => String(a).localeCompare(String(b)));
-  let R = Math.min(W, H) * (state.college === null ? .44 : .38);
-  if (state.college !== null) {
+// where everything goes in a view: calculated on throw-away copies (so it can run any time), then cached
+function layoutFor(view, W, H) {
+  const key = scene.key + "|" + view + "|" + W + "|" + H, hit = layoutCache.get(key); if (hit) return hit;
+  const vis = view === null ? scene.all : scene.byCol[view], es = view === null ? scene.edgesAll : scene.byG[view];
+  const gk = view === null ? (n => n.c) : (n => n.d);
+  const rS = d3.scaleSqrt().domain([1, Math.max(2, d3.max(vis, n => n.p) || 2)]).range([3.5, 20]);
+  const r = new Map(vis.map(n => [n.id, rS(Math.max(1, n.p))]));
+  const keys = [...new Set(vis.map(gk))].sort((a, b) => String(a).localeCompare(String(b)));
+  let R = Math.min(W, H) * (view === null ? .44 : .38);
+  if (view !== null) {
     // Inside a college, size the ring from the departments themselves: just far enough apart that neighbouring clusters
     // (roughly 8*sqrt(members)+12 px wide) clear each other with room for a label, never larger than the full-size ring.
-    const cnt = new Map(); nodes.forEach(n => cnt.set(groupKey(n), (cnt.get(groupKey(n)) || 0) + 1));
+    const cnt = new Map(); vis.forEach(n => cnt.set(gk(n), (cnt.get(gk(n)) || 0) + 1));
     const rad = k => 8 * Math.sqrt(cnt.get(k)) + 12, m = keys.length, GAP = 50;
     R = m < 2 ? 0 : Math.min(R, Math.max(...keys.map((k, i) => (rad(k) + rad(keys[(i + 1) % m]) + GAP) / (2 * Math.sin(Math.PI / m)))));
   }
-  const anchor = new Map();
-  keys.forEach((k, i) => { const a = 2 * Math.PI * i / keys.length - Math.PI / 2; anchor.set(k, { x: W / 2 + R * Math.cos(a), y: H / 2 + R * Math.sin(a) }); });
-  nodes.forEach(n => { if (n._new) { const a = anchor.get(groupKey(n)); n.x = a.x + (Math.random() - .5) * 60; n.y = a.y + (Math.random() - .5) * 60; } });
-  groups = keys.map(k => ({ k, label: state.college === null ? D.colleges[k] : k, members: nodes.filter(n => groupKey(n) === k) }));
-
-  const rS = d3.scaleSqrt().domain([1, Math.max(2, d3.max(nodes, n => n.p))]).range([3.5, 20]);
-  nodes.forEach(n => n.r = rS(Math.max(1, n.p)));
-  const wS = d3.scaleLinear().domain([1, Math.max(2, d3.max(edges, e => e.w))]).range([.8, 4]);
-
-  // edges
-  const heavy = edges.length > 800 || prevEdgeCount > 800;      // big views: lines are hidden while things move, then faded back in
-  const eSel = gE.selectAll("line").data(edges, d => d.source + "|" + d.target)
-    .join(enter => enter.append("line"), update => update, exit => heavy ? exit.remove() : exit.transition().duration(250).style("opacity", 0).remove()).attr("class", "edge").attr("stroke-width", d => wS(d.w));
-  // wide invisible hit-targets so thin lines are easy to hover
-  const hSel = gH.selectAll("line").data(edges, d => (d.source.id || d.source) + "|" + (d.target.id || d.target)).join("line").attr("class", "hit")
-    .on("mouseover", function (ev, d) { eSel.filter(x => x === d).classed("hi", true); showEdgeTip(ev, d); })
-    .on("mousemove", moveTip)
-    .on("mouseout", function (ev, d) { eSel.filter(x => x === d).classed("hi", false); applyEgoEdge(d); hideTip(); });
-  // nodes
-  const SVGNS = "http://www.w3.org/2000/svg", diamond = r => `M0,${-1.3 * r}L${1.05 * r},0L0,${1.3 * r}L${-1.05 * r},0Z`;
-  const nSel = gN.selectAll(".node").data(nodes, d => d.id)
-    .join(enter => enter.append(d => document.createElementNS(SVGNS, d.f ? "path" : "circle")),   // CFEP members are diamonds
-          update => update, exit => exit.transition().duration(250).style("opacity", 0).remove())
-    .attr("class", "node").attr("fill", clr)
-    .each(function (d) { const el = d3.select(this); if (d.f) el.attr("d", diamond(d.r)); else el.attr("r", d.r); })
-    .on("mouseover", (ev, d) => showTip(ev, d)).on("mousemove", moveTip).on("mouseout", hideTip)
-    .on("click", (ev, d) => { ev.stopPropagation(); state.ego = state.ego === d.id ? null : d.id; crumbs(); applyEgo(); panelRender(); })
-    .call(d3.drag().on("start", (e, d) => { if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
-      .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
-      .on("end", (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = d.fy = null; }));
-  // group labels
-  labelSel = gL.selectAll("text").data(groups, d => d.k).join("text").attr("class", "glabel").text(d => d.label.length > 28 ? d.label.slice(0, 27) + "…" : d.label);
-  labelSel.selectAll("title").remove(); labelSel.append("title").text(d => d.label);
-
-  const draw = () => {
-    eSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-    hSel.attr("x1", d => d.source.x).attr("y1", d => d.source.y).attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-    nSel.attr("transform", d => `translate(${d.x},${d.y})`);
-    placeLabels(W, H);
-  };
-  sim = d3.forceSimulation(nodes)
-    .force("link", d3.forceLink(edges).id(d => d.id)
-      .distance(d => d.xc ? 62 : groupKey(d.source) === groupKey(d.target) ? 18 : (state.college !== null ? lerp(38, 62, GROUP_BLEND) : 38))
-      .strength(d => d.xc ? .03 : groupKey(d.source) === groupKey(d.target) ? .28 : (state.college !== null ? lerp(.28, .03, GROUP_BLEND) : .28)))
-    .force("charge", d3.forceManyBody().strength(-110))
-    .force("x", d3.forceX(d => anchor.get(groupKey(d)).x).strength(.9))
-    .force("y", d3.forceY(d => anchor.get(groupKey(d)).y).strength(.9))
-    .force("collide", d3.forceCollide(d => (d.f ? d.r * 1.3 : d.r) + 3))   // diamonds are taller than circles of the same size
-    .alphaDecay(.03).on("tick", draw);
-
-  ticks = 0; userZoomed = false;
-  // First load / new period: compute the layout before painting and fade in the settled network
-  // (no "explosion"). Moving between levels keeps the animation, since those nodes already have positions.
-  const fresh = !rendered;
-  if (fresh || new URLSearchParams(location.search).has("settle")) {
-    root.style("transition", "none").style("opacity", 0);
-    sim.stop(); for (let i = 0; i < 220; i++) sim.tick();
-    sim.on("tick").call(sim);                 // draw the settled positions once
-    fit(W, H, 0);
-    requestAnimationFrame(() => requestAnimationFrame(() => root.style("transition", "opacity .5s ease").style("opacity", 1)));
-    sim.alpha(.02).restart();                 // let it relax gently
-  } else {
-    // Moving between views (all colleges <-> a college, another period, a filter): lay the new view out out of sight
-    // (or reuse the layout we already have for it), then glide every node and the camera from where they are now to where
-    // they will end up, in one eased move.
-    root.style("transition", "none").style("opacity", 1);
-    const viewKey = [state.block, state.college, state.psi, state.cfep, W, H].join("|"), cached = layoutCache.get(viewKey);
-    const from = nodes.map(n => [n.x, n.y]);
-    let to;
-    sim.stop();                                                                                    // the animation, not the simulation, moves the nodes
-    if (cached && nodes.every(n => cached.has(n.id))) to = nodes.map(n => cached.get(n.id));      // seen this view before: no recalculation
-    else { for (let i = 0; i < 150; i++) sim.tick(); to = nodes.map(n => [n.x, n.y]); }
-    nodes.forEach((n, i) => { n.x = to[i][0]; n.y = to[i][1]; }); placeLabels(W, H);
-    const T0 = d3.zoomTransform(svg.node()), T1 = fitTransform(W, H);
-    const view = T => [(W / 2 - T.x) / T.k, (H / 2 - T.y) / T.k, W / T.k];
-    const zi = d3.interpolateZoom(view(T0), view(T1)), t0 = performance.now(), DUR = 850, myRun = ++morphRun;
-    nodes.forEach((n, i) => { n.x = from[i][0]; n.y = from[i][1]; }); draw();
-    const enterN = nSel.filter(d => d._enter), enterE = heavy ? null : eSel.filter(d => d.source._enter || d.target._enter);
-    const fadeIn = e => { enterN.style("opacity", e); if (enterE) enterE.style("opacity", e); };
-    gE.interrupt().style("opacity", null);
-    if (heavy) gE.transition().duration(160).style("opacity", 0);            // hide the thousands of lines while everything moves
-    fadeIn(0); morphing = true;
-    const drawMoving = () => { nSel.attr("transform", d => `translate(${d.x},${d.y})`); placeLabels(W, H); };   // nodes + labels only
-    const step = now => {
-      if (myRun !== morphRun) return;                  // a newer view change took over
-      const t = Math.min(1, (now - t0) / DUR), e = d3.easeCubicInOut(t);
-      nodes.forEach((n, i) => { n.x = from[i][0] + (to[i][0] - from[i][0]) * e; n.y = from[i][1] + (to[i][1] - from[i][1]) * e; });
-      if (heavy) drawMoving(); else draw();
-      fadeIn(e);
-      const [cx, cy, w] = zi(e), k = W / w;
-      svg.call(zoom.transform, d3.zoomIdentity.translate(W / 2 - cx * k, H / 2 - cy * k).scale(k));
-      if (t < 1) requestAnimationFrame(step);
-      else {
-        morphing = false; draw(); sim.alpha(0);
-        enterN.style("opacity", null); if (enterE) enterE.style("opacity", null);
-        if (heavy) gE.transition().duration(350).style("opacity", 1).on("end", () => gE.style("opacity", null));
-      }
-    };
-    requestAnimationFrame(step);
-  }
-  rendered = true; curViewKey = [state.block, state.college, state.psi, state.cfep, W, H].join("|");
-  legend(counts); crumbs(); applyEgo(); filtersUI(); panelRender();
-  statsRender();
+  const anchor = new Map(); keys.forEach((k, i) => { const a = 2 * Math.PI * i / keys.length - Math.PI / 2; anchor.set(k, { x: W / 2 + R * Math.cos(a), y: H / 2 + R * Math.sin(a) }); });
+  const cp = vis.map(n => { const a = anchor.get(gk(n)); return { id: n.id, g: gk(n), f: n.f, r: r.get(n.id), x: a.x + jit(n.id, "x") * 60, y: a.y + jit(n.id, "y") * 60 }; });
+  const s = makeSim(cp, es.map(e => ({ source: e.source.id, target: e.target.id, xc: e.xc })), anchor, view).stop();
+  for (let i = 0, n = vis.length > 800 ? 220 : 150; i < n; i++) s.tick();
+  const entry = { pos: new Map(cp.map(n => [n.id, [n.x, n.y]])), r, anchor, keys, gk };
+  layoutCache.set(key, entry); return entry;
 }
-// scale + centre the network inside the free area (clear of the header, legend and stats)
+
+// camera that frames a laid-out view (labels are estimated from their text length, since they do not exist yet)
+function fitFromLayout(view, L, W, H) {
+  const vis = view === null ? scene.all : scene.byCol[view];
+  if (!vis.length) return d3.zoomIdentity;
+  const mem = new Map(); vis.forEach(n => { const p = L.pos.get(n.id), k = L.gk(n); if (!mem.has(k)) mem.set(k, []); mem.get(k).push({ x: p[0], y: p[1], r: L.r.get(n.id) }); });
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  mem.forEach(list => list.forEach(m => { x0 = Math.min(x0, m.x - m.r); x1 = Math.max(x1, m.x + m.r); y0 = Math.min(y0, m.y - m.r); y1 = Math.max(y1, m.y + m.r); }));
+  const padL = W > 760 ? 290 : 24, padR = panelOpen && W > 760 ? 380 : 24, padT = 56, padB = W > 760 ? 90 : 300, aw = W - padL - padR, ah = H - padT - padB, kMax = view !== null ? 2.2 : 1.4;
+  let k = Math.min(aw / (x1 - x0), ah / (y1 - y0), kMax);
+  const labels = [...mem].map(([key, list]) => { const [lx, ly] = labelXY(list, W, H), text = String(view === null ? D.colleges[key] : key); return { lx, ly, w: Math.min(text.length, 28) * 7.3 }; });
+  labels.forEach(l => { x0 = Math.min(x0, l.lx - l.w / 2 / k); x1 = Math.max(x1, l.lx + l.w / 2 / k); y0 = Math.min(y0, l.ly - 14 / k); y1 = Math.max(y1, l.ly + 4 / k); });
+  k = Math.min(aw / (x1 - x0), ah / (y1 - y0), kMax);
+  return d3.zoomIdentity.translate(padL + (aw - k * (x1 - x0)) / 2 - k * x0, padT + (ah - k * (y1 - y0)) / 2 - k * y0).scale(k);
+}
+
+function labelXY(members, W, H) {      // labels sit just outside each cluster, away from the centre, so nodes never cover them
+  let sx = 0, sy = 0; for (const n of members) { sx += n.x; sy += n.y; }
+  const cx = sx / members.length, cy = sy / members.length; let ext = 0;
+  for (const n of members) ext = Math.max(ext, Math.hypot(n.x - cx, n.y - cy) + n.r);
+  let dx = cx - W / 2, dy = cy - H / 2; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+  return [cx + dx * (ext + 16), cy + dy * (ext + 16) + 4];
+}
+function placeLabels(W, H) { for (const g of groups) { if (!g.members.length) continue; const [x, y] = labelXY(g.members, W, H); g.el.setAttribute("x", x); g.el.setAttribute("y", y); } }
+const place = (n, x, y, r) => { n.x = x; n.y = y; n.r = r; n.el.setAttribute("transform", "translate(" + x + "," + y + ") scale(" + r + ")"); };
+const setEdge = e => { for (const el of [e.el, e.hel]) { el.setAttribute("x1", e.source.x); el.setAttribute("y1", e.source.y); el.setAttribute("x2", e.target.x); el.setAttribute("y2", e.target.y); } };
+const fade = (sel, v, ms, delay) => { const el = sel.node(); el.style.transition = ms ? "opacity " + ms + "ms ease " + (delay || 0) + "ms" : "none"; el.style.opacity = v; };
+
+function refreshUI() { legend(scene.counts); crumbs(); applyEgo(); filtersUI(); panelRender(); statsRender(); }
+
+// ---------- show a view: animate = glide from what is on screen now, otherwise jump ----------
+function showView(view, animate) {
+  const W = innerWidth, H = innerHeight, L = layoutFor(view, W, H), run = ++anim;
+  viewShown = view; if (sim) { sim.stop(); sim = null; }
+  // 1. what the rest of the page reads
+  nodes = view === null ? scene.all : scene.byCol[view];
+  byId = new Map(nodes.map(n => [n.id, n]));
+  edges = view === null ? scene.edgesAll : scene.byG[view];
+  adj = new Map(); edges.forEach(e => { const a = e.source.id, b = e.target.id; if (!adj.has(a)) adj.set(a, new Set()); if (!adj.has(b)) adj.set(b, new Set()); adj.get(a).add(b); adj.get(b).add(a); });
+  if (state.ego && !byId.has(state.ego)) state.ego = null;
+  if (view === null || state.ego || !nodes.some(n => n.d === state.dept)) state.dept = null;   // department focus only applies inside a college
+  nodes.forEach(n => n.g = L.gk(n)); groupKey = n => n.g;
+  let clr;
+  if (view !== null) {
+    const cnt = {}; nodes.forEach(n => cnt[n.d] = (cnt[n.d] || 0) + 1);
+    const depts = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b)), sh = deptShades(depts, COL[view]);   // biggest departments get the best-separated colours
+    curDeptClr = sh; clr = n => sh[n.d];
+  } else clr = n => COL[n.c];
+  nodes.forEach(n => n.el.style.fill = clr(n));
+  // 2. labels: the old ones fade out where they are, new ones are made (invisible until the move is half done)
+  gL.selectAll("text.glabel").classed("old", true).classed("cur", false); setTimeout(() => gL.selectAll("text.old").remove(), 320);
+  groups = L.keys.map(k => ({ k, label: String(view === null ? D.colleges[k] : k), members: nodes.filter(n => n.g === k) }));
+  groups.forEach(g => { g.el = gL.append("text").attr("class", "glabel cur pre").text(g.label.length > 28 ? g.label.slice(0, 27) + "…" : g.label).node(); d3.select(g.el).append("title").text(g.label); });
+  labelSel = d3.selectAll(groups.map(g => g.el));
+  // 3. which groups show, hide or move
+  const tN = c => view === null || c === view, curN = c => !nodeG[c].classed("off");
+  const tE = g => view === null || g === view, curE = g => !edgeG[g].classed("off");
+  const moving = [], enteringN = [], exitingN = [];
+  for (let c = 0; c < 10; c++) {
+    if (tN(c) && curN(c)) scene.byCol[c].forEach(n => { const p = L.pos.get(n.id); moving.push({ n, x0: n.x, y0: n.y, r0: n.r, x1: p[0], y1: p[1], r1: L.r.get(n.id) }); });
+    else if (tN(c)) { enteringN.push(c); scene.byCol[c].forEach(n => { const p = L.pos.get(n.id); place(n, p[0], p[1], L.r.get(n.id)); }); }   // appears where it will stay
+    else if (curN(c)) exitingN.push(c);
+  }
+  const stayE = [], enterE = [], exitE = [];
+  for (let g = 0; g < NGROUP; g++) { if (tE(g) && curE(g) && scene.byG[g].length <= 800) stayE.push(g); else if (tE(g)) enterE.push(g); else if (curE(g)) exitE.push(g); }
+  const movingEdges = stayE.flatMap(g => scene.byG[g]);
+  const T0 = d3.zoomTransform(svg.node()), T1 = fitFromLayout(view, L, W, H);
+  userZoomed = false;
+  // 4. the finished state: exact positions, groups on/off, lines placed, camera, live simulation
+  const finish = () => {
+    if (run !== anim) return;
+    for (const m of moving) place(m.n, m.x1, m.y1, m.r1);
+    for (let c = 0; c < 10; c++) { nodeG[c].classed("off", !tN(c)); if (tN(c)) fade(nodeG[c], 1, 0); }
+    for (let g = 0; g < NGROUP; g++) {
+      edgeG[g].classed("off", !tE(g)); hitG[g].classed("off", !tE(g));
+      if (!tE(g)) continue;
+      for (const e of scene.byG[g]) setEdge(e);
+      if (enterE.includes(g) && animate) fade(edgeG[g], 1, 380, 0); else fade(edgeG[g], 1, 0);
+    }
+    placeLabels(W, H); groups.forEach(g => g.el.classList.remove("pre"));
+    if (!userZoomed) { svg.call(zoom.transform, T1); }
+    animating = false; document.documentElement.classList.remove("moving");
+    sim = makeSim(nodes, edges, L.anchor, view).alpha(0).stop().on("tick", drawLive);
+  };
+  if (!animate) {
+    nodeG.forEach(g => g.classed("off", true)); edgeG.forEach(g => g.classed("off", true));
+    for (let c = 0; c < 10; c++) if (tN(c)) scene.byCol[c].forEach(n => { const p = L.pos.get(n.id); place(n, p[0], p[1], L.r.get(n.id)); });
+    for (const m of moving) place(m.n, m.x1, m.y1, m.r1);
+    placeLabels(W, H); finish(); refreshUI(); return;
+  }
+  animating = true; document.documentElement.classList.add("moving");
+  for (const c of enteringN) { nodeG[c].classed("off", false); fade(nodeG[c], 0, 0); }
+  for (const g of enterE) { edgeG[g].classed("off", false); fade(edgeG[g], 0, 0); }
+  void svg.node().getBoundingClientRect();                       // commit the starting state so the fades below actually animate
+  for (const c of enteringN) fade(nodeG[c], 1, 420, 240);
+  for (const c of exitingN) fade(nodeG[c], 0, 220, 0);
+  for (const g of exitE) fade(edgeG[g], 0, 160, 0);
+  for (const g of stayE) fade(edgeG[g], 1, 120, 0);
+  for (const c of d3.range(10)) if (tN(c) && curN(c) && !enteringN.includes(c)) fade(nodeG[c], 1, 120, 0);
+  placeLabels(W, H); refreshUI();
+  const t0 = performance.now(), DUR = 700, view0 = u => [(W / 2 - u.x) / u.k, (H / 2 - u.y) / u.k, W / u.k], zi = d3.interpolateZoom(view0(T0), view0(T1));
+  let labelsOn = false;
+  const step = now => {
+    if (run !== anim) return;                                    // a newer view change took over
+    const t = Math.min(1, (now - t0) / DUR), e = d3.easeCubicInOut(t);
+    for (const m of moving) place(m.n, m.x0 + (m.x1 - m.x0) * e, m.y0 + (m.y1 - m.y0) * e, m.r0 + (m.r1 - m.r0) * e);
+    for (const ed of movingEdges) { const el = ed.el; el.setAttribute("x1", ed.source.x); el.setAttribute("y1", ed.source.y); el.setAttribute("x2", ed.target.x); el.setAttribute("y2", ed.target.y); }
+    placeLabels(W, H);
+    if (!labelsOn && t > .45) { labelsOn = true; groups.forEach(g => g.el.classList.remove("pre")); }
+    if (!userZoomed) {
+      const [cx, cy, w] = zi(e), k = W / w, T = d3.zoomIdentity.translate(W / 2 - cx * k, H / 2 - cy * k).scale(k);
+      root.attr("transform", T); gL.style("--k", k); svg.node().__zoom = T;
+    }
+    if (t < 1) requestAnimationFrame(step); else finish();
+  };
+  requestAnimationFrame(step);
+}
+
+function drawLive() {                    // while a node is being dragged
+  for (const n of nodes) n.el.setAttribute("transform", "translate(" + n.x + "," + n.y + ") scale(" + n.r + ")");
+  for (const e of edges) setEdge(e);
+  placeLabels(innerWidth, innerHeight);
+}
+
+// ---------- entry points ----------
+function showEmpty() {
+  nodes = []; edges = []; byId = new Map(); adj = new Map(); groups = []; labelSel = d3.selectAll([]); sim = null;
+  [gE, gH, gN, gL].forEach(g => g.selectAll("*").remove());
+  const on = [state.psi && "PSI", state.cfep && "CFEP"].filter(Boolean), psi = state.psi ? (D.psi[state.block] || { n: {} }) : null;
+  document.getElementById("empty-t").textContent = on.length ? "No " + on.join(" + ") + " faculty in " + PERIODS[state.block] : "Nothing to show";
+  document.getElementById("empty-s").textContent = state.psi && psi && !Object.keys(psi.n).length ? "PSI data begins in 2014. Try a later period." : (on.length ? "Try another period or remove a filter." : "");
+  document.getElementById("empty").classList.add("show"); root.style("transition", "none").style("opacity", 1);
+  viewShown = state.college; refreshUI();
+}
+function rebuildScene() {                // first load, another period, or a filter: build everything again and fade it in
+  const run = ++anim, first = !scene; animating = false; document.documentElement.classList.remove("moving");
+  root.style("transition", first ? "none" : "opacity .15s ease").style("opacity", 0);
+  setTimeout(() => {
+    if (run !== anim) return;
+    scene = makeScene();
+    if (!scene.all.length) { showEmpty(); return; }
+    document.getElementById("empty").classList.remove("show");
+    buildDom(); sim = null; showView(state.college, false); rendered = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => root.style("transition", "opacity .45s ease").style("opacity", 1)));
+    precompute();
+  }, first ? 0 : 160);
+}
+function render() {
+  if (!scene || scene.key !== sceneKey()) { rebuildScene(); return; }
+  if (!scene.all.length) { refreshUI(); return; }
+  if (state.college !== viewShown) showView(state.college, true); else refreshUI();      // same view (e.g. a person was picked): no movement
+}
+function precompute() {                  // calculate the other views while the browser is idle, so the first click on each one is instant
+  const W = innerWidth, H = innerHeight, key = scene.key;
+  const order = [null, ...d3.range(10).filter(c => scene.counts[c]).sort((a, b) => scene.counts[b] - scene.counts[a])];
+  const next = () => { if (!scene || scene.key !== key || innerWidth !== W || innerHeight !== H) return; const v = order.shift(); if (v === undefined) return; layoutFor(v, W, H); setTimeout(next, 80); };
+  setTimeout(next, 600);
+}
+// frame the current picture again (used when the Insights panel opens or closes)
 function fit(W, H, ms) {
-  if (userZoomed || !nodes.length) return;
-  const t = fitTransform(W, H);
+  if (userZoomed || animating || !nodes.length) return;
+  const t = fitFromLayout(state.college, layoutFor(state.college, W, H), W, H);
   (ms ? svg.transition().duration(ms) : svg).call(zoom.transform, t);
 }
-function fitTransform(W, H) {
-  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-  nodes.forEach(n => { x0 = Math.min(x0, n.x - n.r); x1 = Math.max(x1, n.x + n.r); y0 = Math.min(y0, n.y - n.r); y1 = Math.max(y1, n.y + n.r); });
-  labelSel.each(function () { const b = this.getBBox(); x0 = Math.min(x0, b.x); x1 = Math.max(x1, b.x + b.width); y0 = Math.min(y0, b.y); y1 = Math.max(y1, b.y + b.height); });
-  const padL = W > 760 ? 290 : 24, padR = panelOpen && W > 760 ? 380 : 24, padT = 56, padB = W > 760 ? 90 : 300;
-  const aw = W - padL - padR, ah = H - padT - padB;
-  const k = Math.min(aw / (x1 - x0), ah / (y1 - y0), state.college !== null ? 2.2 : 1.4);
-  const tx = padL + (aw - k * (x1 - x0)) / 2 - k * x0, ty = padT + (ah - k * (y1 - y0)) / 2 - k * y0;
-  return d3.zoomIdentity.translate(tx, ty).scale(k);
-}
-// labels sit just outside each cluster, away from the centre, so nodes never cover them
-function placeLabels(W, H) {
-  labelSel.each(function (g) {
-    const m = g.members; if (!m.length) return;
-    const cx = d3.mean(m, n => n.x || 0), cy = d3.mean(m, n => n.y || 0);
-    const ext = d3.max(m, n => Math.hypot((n.x || 0) - cx, (n.y || 0) - cy) + n.r);
-    let dx = cx - W / 2, dy = cy - H / 2; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
-    d3.select(this).attr("x", cx + dx * (ext + 16)).attr("y", cy + dy * (ext + 16) + 4);
-  });
-}
-addEventListener("resize", () => { layoutCache.clear(); render(); });
+addEventListener("resize", () => { layoutCache.clear(); if (scene && scene.all.length) { anim++; showView(state.college, false); } });
 requestAnimationFrame(() => setTimeout(render, 0));   // let the header / legend paint before the layout is computed
 </script>
 </body>
