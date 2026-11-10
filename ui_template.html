@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script>try { var t = localStorage.getItem("theme"); document.documentElement.dataset.theme = t === "light" ? "light" : "dark"; } catch (e) { document.documentElement.dataset.theme = "dark"; }</script>
+<title>NC State Research Networks</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #121211; --bg-rgb: 18,18,17; --ink: 255,255,255;     /* ink = the colour of hairlines, hovers, scrollbars and lines on this background */
+  --panel: rgba(30,30,28,.82); --pop: rgba(30,30,28,.97); --tip: rgba(34,34,32,.96); --solid: #1e1e1c;
+  --line: rgba(var(--ink),.09);
+  --text: #f0efec; --muted: #a3a29a; --faint: #6f6e68; --accent: #f0efec; --brand: #ffffff;
+  --gold: #e8d9a8; --ring: #ffffff; --shadow: rgba(0,0,0,.45); --edge-op: .07; --badge-bg: #ffffff; --badge-fg: #121211;
+  --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f5f1; --bg-rgb: 246,245,241; --ink: 20,20,18;
+  --panel: rgba(255,255,255,.84); --pop: rgba(255,255,255,.98); --tip: rgba(255,255,255,.98); --solid: #ffffff;   /* glass surfaces are WHITE here, not ink */
+  --text: #1b1b19; --muted: #5d5c56; --faint: #8a8981; --accent: #1b1b19; --brand: #1b1b19;
+  --gold: #8a6d1b; --ring: #121211; --shadow: rgba(30,30,25,.16); --edge-op: .17; --badge-bg: #1b1b19; --badge-fg: #ffffff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; }
+#stage { position: fixed; inset: 0; }
+#stage svg { width: 100%; height: 100%; display: block; cursor: grab; }
+#stage svg:active { cursor: grabbing; }
+
+/* top bar */
+header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; padding: 18px 24px 4px; pointer-events: none; }
+header::before { content: ""; position: absolute; left: 0; top: 0; width: 640px; height: 90px; z-index: -1; pointer-events: none;   /* only behind the controls, not across the whole top edge */
+  background: linear-gradient(to bottom, rgba(var(--bg-rgb),.96) 55%, rgba(var(--bg-rgb),0));
+  -webkit-mask-image: linear-gradient(to right, #000 70%, transparent); mask-image: linear-gradient(to right, #000 70%, transparent); }
+header > * { pointer-events: auto; }
+.hl { display: inline-flex; flex-direction: column; gap: 14px; pointer-events: none; }
+.hl > * { pointer-events: auto; }
+.toprow { display: flex; align-items: center; gap: 24px; white-space: nowrap; width: 0; min-width: 100%; }   /* long breadcrumbs overflow to the right instead of widening the block */
+.toprow > * { flex-shrink: 0; }
+.toprow nav .here { overflow: visible; text-overflow: clip; }
+.filters { display: flex; align-items: center; gap: 10px; }
+.filters label { font-size: 13px; font-weight: 500; color: var(--muted); }
+.brand { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.brand img { height: 28px; width: auto; display: block; border-radius: 2px; }
+.brand span { font-size: 16.5px; font-weight: 600; letter-spacing: -.01em; color: var(--brand); line-height: 28px; }
+nav { display: flex; align-items: center; gap: 6px; font-size: 13px; min-width: 0; }
+nav .sep { color: var(--faint); }
+nav button { background: none; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 4px 8px;
+  border-radius: 6px; white-space: nowrap; }
+nav button:hover { color: var(--text); background: rgba(var(--ink),.06); }
+nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spacer { flex: 1; }
+.select { position: relative; }
+.select select { appearance: none; -webkit-appearance: none; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px; padding: 6px 32px 6px 12px; font: 600 13px var(--font);
+  cursor: pointer; backdrop-filter: blur(10px); }
+.select select:hover { border-color: rgba(var(--ink),.22); }
+.select select:focus-visible { outline: 2px solid rgba(var(--ink),.4); outline-offset: 2px; }
+.select::after { content: ""; position: absolute; right: 12px; top: 50%; width: 6px; height: 6px; margin-top: -5px;
+  border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); pointer-events: none; }
+.select option { background: var(--solid); }
+
+/* search */
+.filters { flex-wrap: wrap; }
+.search { position: relative; }
+.search input { width: 230px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+  padding: 6px 12px 6px 34px; font: 500 13px var(--font); backdrop-filter: blur(10px); outline: none; }
+.search input::placeholder { color: var(--faint); }
+.search input:hover { border-color: rgba(var(--ink),.22); }
+.search input:focus { border-color: rgba(var(--ink),.4); }
+.search svg { position: absolute; left: 11px; top: 50%; margin-top: -7px; width: 14px; height: 14px; stroke: var(--faint); fill: none;
+  stroke-width: 2; stroke-linecap: round; pointer-events: none; z-index: 1; }
+#results { position: absolute; top: calc(100% + 6px); left: 0; width: 340px; max-height: 340px; overflow-y: auto; display: none;
+  background: var(--pop); border: 1px solid var(--line); border-radius: 12px; padding: 6px;
+  box-shadow: 0 12px 32px var(--shadow); backdrop-filter: blur(14px); }
+#results.show { display: block; }
+.res { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.res.on, .res:hover { background: rgba(var(--ink),.08); }
+.res i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.res div { min-width: 0; flex: 1; }
+.res b { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res small { display: block; font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.res em { font-style: normal; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.res mark { background: none; color: var(--text); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(var(--ink),.35); }
+/* insights panel */
+#tr { position: fixed; top: 18px; right: 24px; z-index: 11; display: flex; gap: 10px; align-items: center; }
+.tbtn { padding: 7px 9px; }
+.tbtn svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tbtn:hover svg { stroke: var(--text); }
+:root:not([data-theme="light"]) .i-moon, :root[data-theme="light"] .i-sun { display: none; }   /* dark shows a sun (click for light), light shows a moon */
+.ibtn.open { border-color: rgba(var(--ink),.3); background: rgba(var(--ink),.1); }
+#panel { position: fixed; right: 24px; top: 70px; bottom: 24px; width: 330px; z-index: 9; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); overflow: hidden;
+  transform: translateX(calc(100% + 40px)); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s; }
+#panel.open { transform: none; visibility: visible; transition: transform .22s ease; }
+#ph { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+#ph h2 { font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+#ph p { font-size: 12.5px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 7px; }
+#ph p i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+#pb { overflow-y: auto; padding: 6px 10px 14px; flex: 1; scrollbar-width: thin; scrollbar-color: rgba(var(--ink),.18) transparent; }
+#pb::-webkit-scrollbar { width: 8px; }
+#pb::-webkit-scrollbar-thumb { background: rgba(var(--ink),.16); border-radius: 4px; }
+#pb::-webkit-scrollbar-thumb:hover { background: rgba(var(--ink),.28); }
+#pb::-webkit-scrollbar-track { background: transparent; }
+#pb h3 { font-size: 13px; font-weight: 600; color: var(--text); padding: 14px 8px 6px; display: flex; justify-content: space-between; align-items: baseline; }
+#pb h3 small { font-size: 11px; font-weight: 500; color: var(--faint); }
+.li { position: relative; display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 8px; cursor: default; overflow: hidden; }
+.li[data-go] { cursor: pointer; }
+.li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--w, 0); background: var(--c, #fff); opacity: .13; border-radius: 8px; }
+.li:hover { background: rgba(var(--ink),.06); }
+.li.p { margin-bottom: 3px; padding: 8px 10px; }
+.li.p::before { width: 100%; opacity: .22; transition: opacity .12s; }
+.li.p:hover { background: none; }
+.li.p:hover::before { opacity: .36; }
+.li > * { position: relative; }
+.li .rk { width: 16px; font-size: 11.5px; color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.li i.d { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.li .pair { display: flex; align-items: center; gap: 4px; width: 24px; flex-shrink: 0; margin-top: 3.5px; }
+.li .pair i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.li .tx { flex: 1; min-width: 0; }
+.li.pr::before { display: none; }
+.li.pr { align-items: flex-start; }
+.li.pr .v { line-height: 17px; }
+.li.pr .tx b { white-space: normal; line-height: 1.3; }
+.li .tx b { display: block; font-size: 13px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.li .tx small { display: block; font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.li .v { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
+.dept { padding: 8px 8px 9px; border-radius: 8px; }
+.dept:hover { background: rgba(var(--ink),.06); }
+.dept .top { display: flex; align-items: center; gap: 9px; }
+.dept .top i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.dept .top b { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dept .top span { font-size: 11.5px; color: var(--faint); }
+.stk { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: rgba(var(--ink),.06); margin: 7px 0 4px 18px; gap: 2px; }
+.stk i { display: block; height: 100%; }
+.dept small { display: block; margin-left: 18px; font-size: 11px; color: var(--faint); }
+.key { display: flex; gap: 14px; padding: 0 8px 4px; font-size: 11px; color: var(--faint); }
+.key span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--k); vertical-align: -1px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 8px 4px; }
+.grid3 div { background: rgba(var(--ink),.05); border-radius: 10px; padding: 10px 10px 9px; }
+.grid3 b { display: block; font-size: 19px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.grid3 small { font-size: 11px; color: var(--muted); }
+.pnote { padding: 8px 8px 2px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+/* filters */
+.fwrap { position: relative; }
+.fbtn { display: flex; align-items: center; gap: 8px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 10px; padding: 6px 12px; font: 600 13px var(--font); cursor: pointer; backdrop-filter: blur(10px); }
+.fbtn:hover, .fbtn.open { border-color: rgba(var(--ink),.3); }
+.fbtn svg { width: 14px; height: 14px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; }
+.badge { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--badge-bg); color: var(--badge-fg);
+  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.badge.show { display: inline-block; }
+#fpop { position: absolute; top: calc(100% + 6px); left: 0; width: 330px; display: none; padding: 8px;
+  background: var(--pop); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px var(--shadow); backdrop-filter: blur(14px); }
+#fpop.show { display: block; }
+#fpop h3 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 6px 8px 8px; }
+.opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 8px; background: none; border: 0; border-radius: 10px;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.opt:hover { background: rgba(var(--ink),.06); }
+.opt div { flex: 1; min-width: 0; }
+.opt b { display: block; font-size: 13px; font-weight: 600; }
+.opt small { display: block; font-size: 11.5px; color: var(--faint); margin-top: 2px; line-height: 1.35; }
+.opt[disabled] { opacity: .45; cursor: not-allowed; background: none; }
+.sw { width: 34px; height: 20px; border-radius: 10px; background: rgba(var(--ink),.14); position: relative; flex-shrink: 0; transition: background .15s; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.opt.on .sw { background: #3987e5; }
+.opt.on .sw::after { transform: translateX(14px); }
+#chips { display: flex; gap: 6px; }
+.chip { display: flex; align-items: center; gap: 7px; background: rgba(var(--ink),.1); color: var(--text); border: 0; border-radius: 100px;
+  padding: 5px 10px 5px 12px; font: 600 12.5px var(--font); cursor: pointer; }
+.chip:hover { background: rgba(var(--ink),.17); }
+.chip span { color: var(--muted); font-size: 11px; }
+#empty { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 4; pointer-events: none; text-align: center;
+  color: var(--muted); font-size: 14px; line-height: 1.6; }
+#empty.show { display: flex; }
+#empty b { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+.none { padding: 10px; font-size: 12.5px; color: var(--muted); }
+
+/* legend */
+#legend { position: fixed; left: 24px; bottom: 24px; z-index: 10; width: 244px; padding: 14px 8px 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); }
+#legend { max-height: calc(100vh - 170px); display: flex; flex-direction: column; }
+#legend h2 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 0 10px 8px;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+#lg-back { display: none; background: none; border: 0; font: 500 11.5px var(--font); letter-spacing: 0; text-transform: none; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+#lg-back:hover { color: var(--text); background: rgba(var(--ink),.08); }
+#lg { overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: rgba(var(--ink),.18) transparent; }
+#lg::-webkit-scrollbar { width: 8px; }
+#lg::-webkit-scrollbar-thumb { background: rgba(var(--ink),.16); border-radius: 4px; }
+.lg { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px; background: none; border: 0;
+  border-radius: 8px; color: var(--muted); font: 500 13px var(--font); cursor: pointer; text-align: left; transition: background .12s, color .12s, opacity .12s; }
+.lg:hover { background: rgba(var(--ink),.06); color: var(--text); }
+.lg.ro { cursor: default; }
+.lg.on { color: var(--text); background: rgba(var(--ink),.08); }
+.lg.off { opacity: .35; }
+.lg i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.lg span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg b { font-weight: 500; font-variant-numeric: tabular-nums; color: var(--faint); font-size: 12px; }
+
+/* stats + hint */
+#stats { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 22px; align-items: baseline; white-space: nowrap;
+  width: 0; min-width: 100%; margin-top: -4px;   /* width 0 + min-width 100%: never makes the block wider than the controls row above */
+  text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg), 0 0 14px var(--bg); }   /* dark halo keeps it readable over nodes */
+#stats .st { display: flex; align-items: baseline; gap: 5px; cursor: default; }
+#stats b { font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+#stats b em { font-style: normal; font-size: 11.5px; font-weight: 500; color: var(--muted); margin-left: 4px; letter-spacing: 0; }
+#stats small { font-size: 12px; color: var(--muted); }
+#hint { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); font-size: 12px; color: var(--muted);
+  z-index: 5; white-space: nowrap; pointer-events: none;
+  text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg), 0 0 14px var(--bg); }
+
+/* svg bits */
+.edge { stroke: rgb(var(--ink)); stroke-opacity: var(--edge-op); fill: none; }
+.edge.hi { stroke-opacity: .55; }
+.edge.dim { stroke-opacity: .015; }
+.edge { transition: stroke-opacity .15s; }
+.hit { stroke: transparent; stroke-width: 9px; fill: none; cursor: pointer; }
+.node { stroke: var(--bg); stroke-width: 1.2; vector-effect: non-scaling-stroke; transition: opacity .15s, fill .6s ease; cursor: pointer; }   /* unit-size shapes scaled to their radius, so the outline stays 1.2px */
+.off { display: none; }
+.no-anim, .no-anim * { transition: none !important; }   /* a theme switch is instant: no crossfade anywhere */
+.moving .hit { pointer-events: none; }
+.node.dim { opacity: .1; }
+.node.pin { stroke: var(--ring); stroke-width: 2.5; }
+.node.sub { opacity: .45; }
+.node.focus { opacity: 1; stroke: var(--ring); stroke-width: 3.5; filter: drop-shadow(0 0 7px rgba(var(--ink),.6)); }
+.edge.focus { stroke-opacity: 1; stroke-width: 3.5px; }
+.glabel { font: 600 calc(13px / var(--k, 1)) var(--font); fill: var(--muted); text-anchor: middle; pointer-events: none;
+  paint-order: stroke; stroke: var(--bg); stroke-width: calc(4px / var(--k, 1)); stroke-linejoin: round; transition: opacity .3s ease; }
+.glabel.pre, .glabel.old { opacity: 0; }
+
+/* tooltip */
+#tip { position: fixed; z-index: 20; pointer-events: none; display: none; min-width: 190px; max-width: 320px; padding: 12px 14px;
+  background: var(--tip); border: 1px solid rgba(var(--ink),.12); border-radius: 12px;
+  box-shadow: 0 12px 32px var(--shadow); }
+#tip .n { font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+#tip .c { display: flex; align-items: center; gap: 7px; margin-top: 4px; font-size: 12px; color: var(--muted); }
+#tip .c i { width: 8px; height: 8px; border-radius: 50%; }
+#tip .d { font-size: 12px; color: var(--faint); margin-top: 2px; }
+#tip .cf { font-size: 12px; color: var(--gold); margin-top: 6px; }
+#tip .r { display: flex; justify-content: space-between; gap: 18px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--muted); }
+#tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+#tip .pair { display: flex; flex-direction: column; gap: 5px; }
+#tip .pair div { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; }
+#tip .pair i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+#tip .papers { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+#tip .papers h4 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 5px; }
+#tip .papers p { font-size: 12px; line-height: 1.4; color: var(--muted); padding: 3px 0; }
+
+@media (max-width: 760px) {
+  #hint { display: none; }
+  #stats { width: auto; min-width: 0; flex-wrap: wrap; gap: 2px 0; }
+  #legend { width: calc(100% - 32px); left: 16px; bottom: 16px; }
+  header { padding: 14px 16px 4px; }
+  .brand span { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="stage"><svg id="svg" role="img" aria-label="Faculty collaboration network"></svg></div>
+
+<header>
+  <div class="hl">
+    <div class="toprow">
+      <div class="brand"><img alt="NC State" src="data:image/png;base64,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"><span>Research Networks</span></div>
+      <nav id="crumbs" aria-label="Breadcrumb"></nav>
+    </div>
+    <div class="filters">
+      <label for="period">Period</label>
+      <div class="select"><select id="period" aria-label="Time period"></select></div>
+      <div class="search">
+        <svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+        <input id="q" type="text" placeholder="Search faculty" autocomplete="off" spellcheck="false" aria-label="Search faculty" aria-controls="results">
+        <div id="results" role="listbox"></div>
+      </div>
+      <div class="fwrap">
+        <button class="fbtn" id="fbtn" aria-haspopup="dialog" aria-expanded="false">
+          <svg viewBox="0 0 16 16"><path d="M2 4h12M4.5 8h7M7 12h2"/></svg>Filters<span class="badge" id="fcount"></span>
+        </button>
+        <div id="fpop" role="dialog" aria-label="Filters">
+          <h3>Show only</h3>
+          <button class="opt" id="opt-psi" role="switch" aria-checked="false">
+            <div><b>PSI collaborators</b><small>Faculty with Plant Sciences Initiative papers, and their PSI co-authorships. Data covers 2014 – 2025.</small></div><span class="sw"></span>
+          </button>
+          <button class="opt" id="opt-cfep" role="switch" aria-checked="false">
+            <div><b>CFEP members</b><small>Chancellor's Faculty Excellence Program: faculty in a CFEP cluster. They are drawn as diamonds.</small></div><span class="sw"></span>
+          </button>
+        </div>
+      </div>
+      <div id="chips"></div>
+    </div>
+    <div id="stats">
+      <div class="st"><b id="s-n">–</b><small>faculty</small></div>
+      <div class="st"><b id="s-e">–</b><small>collaborations</small></div>
+      <div class="st"><b id="s-x">–</b><small id="s-xl">cross-college</small></div>
+      <div class="st" id="s-pw"><b id="s-p">–</b><small id="s-pl">publications</small></div>
+    </div>
+  </div>
+</header>
+
+<aside id="legend"><h2><span id="lg-title">Colleges</span><button id="lg-back" title="Back to all colleges">‹ All colleges</button></h2><div id="lg"></div></aside>
+<div id="tr">
+  <button class="fbtn tbtn" id="tbtn" aria-label="Switch to light mode" title="Switch to light mode">
+    <svg class="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg>
+    <svg class="i-moon" viewBox="0 0 16 16"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/></svg>
+  </button>
+  <button class="fbtn ibtn" id="ibtn" aria-expanded="false" aria-controls="panel">
+    <svg viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="2"/><path d="M10 2.5v11"/></svg>Insights
+  </button>
+</div>
+<aside id="panel" aria-label="Insights"><div id="ph"><h2 id="pt"></h2><p id="ps"></p></div><div id="pb"></div></aside>
+<div id="hint">Scroll to zoom · drag to pan · click a college or person to explore · press / to search · Esc goes back</div>
+<div id="empty" class="show"><div><b id="empty-t">Laying out network…</b><span id="empty-s"></span></div></div>
+<div id="tip"></div>
+
+<script>
+const D = __DATA__;
+// One colour per college (fixed by entity). Two sets of the same hues, each tuned for its own background (>= 3:1 contrast, neighbours stay distinct).
+const DARK_COL  = ["#3987e5","#d95926","#199e70","#c98500","#d55181","#9085e9","#008300","#e66767","#1b98b0","#8f9a1c"];
+const LIGHT_COL = ["#3987e5","#d95926","#18956a","#c28000","#d55181","#8478e7","#359f3e","#e35555","#1a90a7","#b66ecf"];
+const isLight = () => document.documentElement.dataset.theme === "light";
+const COL = (isLight() ? LIGHT_COL : DARK_COL).slice();      // changed in place when the theme changes
+const paintVars = () => COL.forEach((c, i) => document.documentElement.style.setProperty("--col" + i, c));   // same colours as CSS variables: the all-colleges nodes read these, so a theme switch needs no per-node work
+paintVars();
+const PERIODS = {"2006":"2006 – 2010","2011":"2011 – 2015","2016":"2016 – 2020","2021":"2021 – 2025"};
+const state = { block: "2021", college: null, ego: null, psi: false, cfep: false, dept: null };
+{ const q = new URLSearchParams(location.search);   // optional deep-link: ?college=0&ego=<id>&block=2016
+  if (q.has("college")) state.college = +q.get("college"); if (q.has("ego")) state.ego = q.get("ego"); if (q.has("block")) state.block = q.get("block"); if (q.has("psi")) state.psi = true; if (q.has("cfep")) state.cfep = true; if (q.has("dept")) state.dept = q.get("dept"); }
+
+const svg = d3.select("#svg");
+const root = svg.append("g");
+const gE = root.append("g"), gH = root.append("g"), gN = root.append("g"), gL = root.append("g");
+const zoom = d3.zoom().scaleExtent([0.1, 12]).on("zoom", e => { root.attr("transform", e.transform); gL.style("--k", e.transform.k); if (e.sourceEvent) userZoomed = true; });
+svg.call(zoom).on("dblclick.zoom", null);
+
+const tip = document.getElementById("tip");
+let sim = null, nodes = [], edges = [], byId = new Map(), adj = new Map(), groupKey = null, labelSel = null, groups = [];
+// How strongly departments hold together inside a college view. 0 = departments are linked as loosely as ordinary
+// co-authors (old behaviour); 1 = as separated as colleges are in the all-colleges view. Currently 3/4 of the way.
+const GROUP_BLEND = .75, lerp = (a, b, t) => a + (b - a) * t;
+let focusId = null;   // collaborator currently hovered in the Insights panel while a person is selected
+let rendered = false, userZoomed = false, panelOpen = false, curDeptClr = {};
+
+// ---------- controls ----------
+const sel = document.getElementById("period");
+Object.entries(PERIODS).forEach(([k, v]) => sel.add(new Option(v, k)));
+sel.value = state.block;
+sel.onchange = () => { state.block = sel.value; state.ego = null; closeResults(); render(); };
+
+function crumbs() {
+  const nav = document.getElementById("crumbs"); nav.innerHTML = "";
+  const items = [{ t: "All colleges", go: () => { state.college = null; state.ego = null; render(); } }];
+  if (state.college !== null) items.push({ t: D.colleges[state.college], go: () => { state.ego = null; render(); } });
+  if (state.ego) items.push({ t: byId.get(state.ego)?.nm || "", go: null });
+  items.forEach((it, i) => {
+    if (i) { const s = document.createElement("span"); s.className = "sep"; s.textContent = "›"; nav.appendChild(s); }
+    if (i === items.length - 1) { const h = document.createElement("span"); h.className = "here"; h.textContent = it.t; nav.appendChild(h); }
+    else { const b = document.createElement("button"); b.textContent = it.t; b.onclick = it.go; nav.appendChild(b); }
+  });
+}
+// ---------- headline numbers (follow the current period, college and filters) ----------
+function statsRender() {
+  const g = fullGraph(), c = state.college;
+  let cross = 0, total = 0;
+  g.edges.forEach(e => {
+    const a = g.nodes.get(e[0]).c, b = g.nodes.get(e[1]).c;
+    if (c === null) { total++; if (a !== b) cross++; }
+    else if (a === c || b === c) { total++; if ((a === c) !== (b === c)) cross++; }   // ties between this college and the others
+  });
+  const pubs = nodes.reduce((sum, n) => sum + n.p, 0), set = (id, v) => document.getElementById(id).innerHTML = v;
+  set("s-n", nodes.length.toLocaleString());
+  set("s-e", edges.length.toLocaleString());
+  set("s-x", cross.toLocaleString() + (total ? `<em>${Math.round(cross / total * 100)}%</em>` : ""));
+  set("s-xl", "cross-college");
+  set("s-p", pubs.toLocaleString());
+  set("s-pl", state.psi ? "PSI papers" : "publications");
+  document.getElementById("s-pw").title = "Each faculty member's publications in this period added together. A paper with several NC State authors counts once per author.";
+  document.getElementById("s-x").parentNode.title = c === null ? "Collaborations between faculty in different colleges, and their share of all collaborations."
+    : "Collaborations between faculty in this college and faculty in other colleges, as a share of all collaborations involving this college (the collaborations count to the left only includes ties inside the college).";
+}
+
+// ---------- insights panel ----------
+// Whole-block graph (ignores the college drilldown) so the panel can describe cross-college ties
+const gCache = {};
+function fullGraph() {
+  const key = state.block + "|" + state.psi + "|" + state.cfep;
+  if (gCache[key]) return gCache[key];
+  const data = D.blocks[state.block], psi = state.psi ? (D.psi[state.block] || { n: {}, e: [] }) : null;
+  const nodes = new Map();
+  data.n.forEach(r => { if ((psi && psi.n[r[0]] === undefined) || (state.cfep && r[5] !== 1)) return;
+    nodes.set(r[0], { id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], f: r[5] === 1, k: r[6] }); });
+  const edges = (psi ? psi.e : data.e).filter(e => nodes.has(e[0]) && nodes.has(e[1]));
+  const nb = new Map(), add = (a, b, w) => { if (!nb.has(a)) nb.set(a, new Map()); nb.get(a).set(b, w); };
+  edges.forEach(e => { add(e[0], e[1], e[2]); add(e[1], e[0], e[2]); });
+  return gCache[key] = { nodes, edges, nb };
+}
+const pEsc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = n => n.toLocaleString();
+const hexA = (h, a) => h;   // (colour passed through; opacity handled in CSS)
+function rows(list, valueOf, max, unit) {
+  return list.map((n, i) => `<div class="li p" data-go="${pEsc(n.id)}" data-hl="p:${pEsc(n.id)}" style="--c:${state.college !== null && curDeptClr[n.d] ? curDeptClr[n.d] : COL[n.c]}">
+    <span class="rk">${i + 1}</span>
+    <div class="tx"><b>${pEsc(n.nm)}</b><small>${pEsc(n.d)}</small></div><span class="v">${fmt(valueOf(n))}${unit || ""}</span></div>`).join("");
+}
+function panelRender() {
+  const g = fullGraph(), pt = document.getElementById("pt"), ps = document.getElementById("ps"), body = document.getElementById("pb");
+  const metric = state.psi ? "PSI papers" : "Publications";
+  let h = "";
+  if (!g.nodes.size) { pt.textContent = "Insights"; ps.textContent = PERIODS[state.block]; body.innerHTML = '<div class="pnote">Nothing to show for the current filters.</div>'; return; }
+  if (state.ego && g.nodes.has(state.ego)) {                        // ---- person
+    const n = g.nodes.get(state.ego), nbs = [...(g.nb.get(n.id) || [])].map(([id, w]) => ({ n: g.nodes.get(id), w })).sort((a, b) => b.w - a.w);
+    pt.textContent = n.nm; ps.innerHTML = `<i style="background:${COL[n.c]}"></i>${pEsc(D.colleges[n.c])} · ${pEsc(n.d)}`;
+    const reach = new Set(nbs.map(x => x.n.c)), same = nbs.filter(x => x.n.c === n.c).length;
+    if (n.f) h += `<div class="pnote" style="padding-top:12px">◆ CFEP cluster: <b style="color:var(--text)">${pEsc(D.cfep[n.k] || "")}</b></div>`;
+    h += `<div class="grid3"><div><b>${fmt(n.p)}</b><small>${state.psi ? metric : metric.toLowerCase()}</small></div><div><b>${nbs.length}</b><small>collaborators</small></div><div><b>${reach.size || 0}</b><small>${reach.size === 1 ? "college" : "colleges"} reached</small></div></div>`;
+    if (nbs.length) {
+      h += `<div class="pnote">${same} in ${pEsc(D.colleges[n.c])}, ${nbs.length - same} in other colleges.</div>`;
+      const max = nbs[0].w;
+      h += `<h3>Collaborators <small>shared papers</small></h3>` + nbs.map(x => `<div class="li p" data-go="${pEsc(x.n.id)}" data-hl="p:${pEsc(x.n.id)}" style="--c:${COL[x.n.c]}">
+        <div class="tx"><b>${pEsc(x.n.nm)}</b><small>${pEsc(x.n.d)}${x.n.c !== n.c ? " · " + pEsc(D.colleges[x.n.c]) : ""}</small></div><span class="v">${x.w}</span></div>`).join("");
+    } else h += `<div class="pnote">${state.psi || state.cfep ? "No collaborations with anyone else inside the current filters." : "No collaborations in " + PERIODS[state.block] + "."}</div>`;
+  } else if (state.college !== null) {                               // ---- college
+    const c = state.college, people = [...g.nodes.values()].filter(n => n.c === c).sort((a, b) => b.p - a.p);
+    const dep = new Map();
+    people.forEach(n => { if (!dep.has(n.d)) dep.set(n.d, { d: n.d, n: 0, within: 0, cross: 0 }); dep.get(n.d).n++; });
+    g.edges.forEach(e => { const a = g.nodes.get(e[0]), b = g.nodes.get(e[1]), w = e[2];
+      if (a.c === c && b.c === c) { dep.get(a.d).within += w; if (b.d !== a.d) dep.get(b.d).within += w; }
+      else if (a.c === c) dep.get(a.d).cross += w; else if (b.c === c) dep.get(b.d).cross += w; });
+    const list = [...dep.values()].sort((a, b) => (b.within + b.cross) - (a.within + a.cross)), mx = Math.max(1, ...list.map(x => x.within + x.cross));
+    const depts = [...new Set(people.map(n => n.d))].length;
+    pt.textContent = D.colleges[c]; ps.innerHTML = `<i style="background:${COL[c]}"></i>${fmt(people.length)} faculty · ${depts} departments`;
+    h += `<h3>Most active <small>${state.psi ? metric : metric.toLowerCase()}</small></h3>` + rows(people.slice(0, 10), n => n.p, people[0] ? people[0].p : 1);
+    h += `<h3>Departments <small>shared papers</small></h3><div class="key"><span style="--k:${COL[c]}">within ${pEsc(D.colleges[c])}</span><span style="--k:rgba(255,255,255,.35)">with other colleges</span></div>`;
+    h += list.map(x => { const t = x.within + x.cross, col = curDeptClr[x.d] || COL[c];
+      return `<div class="dept" data-hl="d:${pEsc(x.d)}"><div class="top"><i style="background:${col}"></i><b title="${pEsc(x.d)}">${pEsc(x.d)}</b><span>${x.n} faculty</span></div>
+      <div class="stk" style="width:calc(${(t / mx * 100).toFixed(1)}% - 18px)"><i style="width:${t ? x.within / t * 100 : 0}%;background:${col}"></i><i style="flex:1;background:rgba(255,255,255,.35)"></i></div>
+      <small>${fmt(x.within)} within · ${fmt(x.cross)} cross-college</small></div>`; }).join("");
+  } else {                                                           // ---- everything
+    const top = [...g.nodes.values()].sort((a, b) => b.p - a.p).slice(0, 10);
+    pt.textContent = "Overview"; ps.textContent = `${PERIODS[state.block]} · ${fmt(g.nodes.size)} faculty`;
+    h += `<h3>Most active <small>${state.psi ? metric : metric.toLowerCase()}</small></h3>` + rows(top, n => n.p, top[0].p);
+    const pair = new Map();
+    g.edges.forEach(e => { const a = g.nodes.get(e[0]).c, b = g.nodes.get(e[1]).c; if (a === b) return;
+      const k = Math.min(a, b) + "|" + Math.max(a, b); pair.set(k, (pair.get(k) || 0) + e[2]); });
+    const pl = [...pair].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    if (pl.length) { const mx = pl[0][1];
+      h += `<h3>Colleges that collaborate most <small>shared papers</small></h3>` + pl.map(([k, v]) => { const [a, b] = k.split("|").map(Number);
+        return `<div class="li pr"><span class="pair"><i style="background:${COL[a]}"></i><i style="background:${COL[b]}"></i></span>
+        <div class="tx"><b>${pEsc(D.colleges[a])} · ${pEsc(D.colleges[b])}</b></div><span class="v">${fmt(v)}</span></div>`; }).join(""); }
+  }
+  body.innerHTML = h; body.scrollTop = 0;
+}
+document.getElementById("pb").addEventListener("click", e => {
+  const r = e.target.closest("[data-go]"); if (!r) return;
+  const n = fullGraph().nodes.get(r.dataset.go); if (!n) return;
+  if (state.college !== null && state.college !== n.c) state.college = null;   // keep the college only if they belong to it
+  focusId = null; state.ego = n.id; render();
+});
+document.getElementById("pb").addEventListener("mouseover", e => {
+  const r = e.target.closest("[data-hl]"); if (!r) return;
+  const [k, v] = [r.dataset.hl.slice(0, 1), r.dataset.hl.slice(2)];
+  clearTimeout(previewTimer);
+  if (k === "p" && state.ego && v !== state.ego && adj.get(state.ego)?.has(v)) { focusId = v; applyEgo(); }   // in a person's view: highlight the collaborator, keep their network
+  else if (k === "p") previewTimer = setTimeout(() => previewEgo(v), 70);   // short delay so sweeping down the list doesn't flicker
+  else spot(n => n.d === v);
+});
+document.getElementById("pb").addEventListener("mouseleave", () => { clearTimeout(previewTimer); focusId = null; applyEgo(); });
+// Hovering a person in the panel briefly lights up their whole network on the canvas (nothing is pinned).
+let previewTimer = null;
+function previewEgo(id) {
+  if (!byId.has(id)) return;                          // not on the canvas right now (other college / filtered out)
+  const nb = new Set([id, ...(adj.get(id) || [])]);
+  gN.selectAll(".node").classed("dim", d => !nb.has(d.id)).classed("pin", d => d.id === id);
+  gE.selectAll(".edge").classed("hi", e => e.source.id === id || e.target.id === id)
+    .classed("dim", e => !(e.source.id === id || e.target.id === id));
+}
+// ---------- light / dark ----------
+const tbtn = document.getElementById("tbtn");
+let panelDirty = false;
+function setTheme(t, save = true) {
+  const html = document.documentElement;
+  html.classList.add("no-anim");                       // the network switches at once; only the interface crossfades
+  html.dataset.theme = t;
+  if (save) { try { localStorage.setItem("theme", t); } catch (e) {} }
+  const next = t === "light" ? "Switch to dark mode" : "Switch to light mode";
+  tbtn.setAttribute("aria-label", next); tbtn.title = next;
+  COL.splice(0, COL.length, ...(t === "light" ? LIGHT_COL : DARK_COL));
+  paintVars();                                         // one style pass recolours every college node
+  if (scene && scene.all.length) {
+    if (state.college !== null) { const clr = makeClr(state.college, nodes); nodes.forEach(n => n.el.style.fill = clr(n)); }   // department shades are worked out per theme (a few hundred nodes at most)
+    legend(scene.counts);
+    if (panelOpen) { const pb = document.getElementById("pb"), st = pb.scrollTop; panelRender(); pb.scrollTop = st; } else panelDirty = true;
+  }
+  requestAnimationFrame(() => requestAnimationFrame(() => html.classList.remove("no-anim")));
+}
+tbtn.onclick = () => setTheme(isLight() ? "dark" : "light");
+tbtn.setAttribute("aria-label", isLight() ? "Switch to dark mode" : "Switch to light mode"); tbtn.title = tbtn.getAttribute("aria-label");
+
+const panel = document.getElementById("panel"), ibtn = document.getElementById("ibtn");
+function setPanel(open) {
+  if (open && panelDirty) { panelDirty = false; panelRender(); }
+  panelOpen = open; panel.classList.toggle("open", open); ibtn.classList.toggle("open", open); ibtn.setAttribute("aria-expanded", open);
+  userZoomed = false; if (nodes.length) fit(innerWidth, innerHeight, 0);   // make room for the panel
+}
+ibtn.onclick = () => setPanel(!panelOpen);
+
+function legend(counts) {
+  const lg = document.getElementById("lg"); lg.innerHTML = "";
+  const back = document.getElementById("lg-back"), title = document.getElementById("lg-title");
+  if (state.college === null) {                       // all colleges: hover spotlights, click drills in
+    title.textContent = "Colleges"; back.style.display = "none";
+    D.colleges.map((n, i) => i).sort((a, b) => (counts[b] || 0) - (counts[a] || 0)).forEach(i => {
+      const b = document.createElement("button");
+      b.className = "lg";
+      b.innerHTML = `<i style="background:${COL[i]}"></i><span>${D.colleges[i]}</span><b>${(counts[i] || 0).toLocaleString()}</b>`;
+      b.onclick = () => { state.college = i; state.ego = null; state.dept = null; render(); };
+      b.onmouseenter = () => spot(n => n.c === i);
+      b.onmouseleave = () => applyEgo();
+      lg.appendChild(b);
+    });
+    return;
+  }
+  // inside a college: the legend lists its departments, with the same highlighting behaviour
+  title.textContent = "Departments"; back.style.display = "block";
+  back.onclick = () => { state.college = null; state.ego = null; state.dept = null; render(); };
+  const dc = {}; nodes.forEach(n => dc[n.d] = (dc[n.d] || 0) + 1);
+  Object.keys(dc).sort((a, b) => dc[b] - dc[a] || a.localeCompare(b)).forEach(d => {
+    const b = document.createElement("button");
+    b.className = "lg ro";                      // department rows are for hovering only: clicking does nothing
+    b.title = d;
+    b.innerHTML = `<i style="background:${curDeptClr[d] || COL[state.college]}"></i><span>${pEsc(d)}</span><b>${dc[d].toLocaleString()}</b>`;
+    b.onmouseenter = () => spot(n => n.d === d);
+    b.onmouseleave = () => applyEgo();
+    lg.appendChild(b);
+  });
+}
+// ---------- filters ----------
+const fbtn = document.getElementById("fbtn"), fpop = document.getElementById("fpop"), optPsi = document.getElementById("opt-psi"), optCfep = document.getElementById("opt-cfep");
+function filtersUI() {
+  const active = [state.psi && "psi", state.cfep && "cfep"].filter(Boolean);
+  const badge = document.getElementById("fcount");
+  badge.textContent = active.length; badge.classList.toggle("show", active.length > 0);
+  optPsi.classList.toggle("on", state.psi); optPsi.setAttribute("aria-checked", state.psi);
+  optCfep.classList.toggle("on", state.cfep); optCfep.setAttribute("aria-checked", state.cfep);
+  const chips = document.getElementById("chips"); chips.innerHTML = "";
+  [["psi", "PSI only"], ["cfep", "CFEP only"]].forEach(([k, label]) => {
+    if (!state[k]) return;
+    const c = document.createElement("button"); c.className = "chip"; c.innerHTML = label + " <span>✕</span>"; c.title = "Remove filter";
+    c.onclick = () => { state[k] = false; state.ego = null; render(); }; chips.appendChild(c);
+  });
+}
+function setPop(open) { fpop.classList.toggle("show", open); fbtn.classList.toggle("open", open); fbtn.setAttribute("aria-expanded", open); }
+fbtn.onclick = e => { e.stopPropagation(); setPop(!fpop.classList.contains("show")); };
+fpop.onclick = e => e.stopPropagation();
+document.addEventListener("click", () => setPop(false));
+optPsi.onclick = () => { state.psi = !state.psi; state.ego = null; render(); };
+optCfep.onclick = () => { state.cfep = !state.cfep; state.ego = null; render(); };
+
+// ---------- search ----------
+const qIn = document.getElementById("q"), resBox = document.getElementById("results");
+const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const searchCache = {};
+let hits = [], hi = 0;
+function searchIndex() {
+  return searchCache[state.block] || (searchCache[state.block] = D.blocks[state.block].n.map(r => ({ r, k: norm(r[1]) })));
+}
+function runSearch() {
+  const t = norm(qIn.value.trim());
+  if (!t) { closeResults(); return; }
+  const words = t.split(/\s+/);
+  const psiSet = state.psi ? (D.psi[state.block] || { n: {} }).n : null;
+  hits = searchIndex().filter(x => (!psiSet || psiSet[x.r[0]] !== undefined) && (!state.cfep || x.r[5] === 1) && words.every(w => x.k.includes(w)))
+    .map(x => ({ r: x.r, s: (x.k.startsWith(t) ? 0 : x.k.split(/\s+/).some(w => w.startsWith(words[0])) ? 1 : 2) }))
+    .sort((a, b) => a.s - b.s || b.r[4] - a.r[4]).slice(0, 8).map(x => x.r);
+  hi = 0; drawResults(t);
+}
+function drawResults(t) {
+  resBox.innerHTML = "";
+  if (!hits.length) { resBox.innerHTML = `<div class="none">No one matching “${esc(qIn.value.trim())}” in ${PERIODS[state.block]}</div>`; }
+  hits.forEach((r, i) => {
+    const el = document.createElement("div");
+    el.className = "res" + (i === hi ? " on" : ""); el.setAttribute("role", "option");
+    const name = esc(r[1]), m = norm(r[1]).indexOf(t.split(/\s+/)[0]);
+    const label = m >= 0 ? name.slice(0, m) + "<mark>" + name.slice(m, m + t.split(/\s+/)[0].length) + "</mark>" + name.slice(m + t.split(/\s+/)[0].length) : name;
+    el.innerHTML = `<i style="background:${COL[r[2]]}"></i><div><b>${label}</b><small>${esc(r[3] || D.colleges[r[2]])}</small></div><em>${r[4]} pubs</em>`;
+    el.onmousedown = e => { e.preventDefault(); pick(r); };
+    el.onmouseenter = () => { hi = i; [...resBox.children].forEach((c, j) => c.classList.toggle("on", j === i)); };
+    resBox.appendChild(el);
+  });
+  resBox.classList.add("show");
+}
+function closeResults() { resBox.classList.remove("show"); hits = []; }
+function pick(r) {
+  if (state.college !== null && state.college !== r[2]) state.college = null; // keep the college context only if they belong to it
+  state.ego = r[0];
+  qIn.value = ""; closeResults(); qIn.blur();
+  render();
+}
+qIn.addEventListener("input", runSearch);
+qIn.addEventListener("focus", () => { if (qIn.value.trim()) runSearch(); });
+qIn.addEventListener("blur", closeResults);
+qIn.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (!hits.length) return; e.preventDefault();
+    hi = (hi + (e.key === "ArrowDown" ? 1 : -1) + hits.length) % hits.length; drawResults(norm(qIn.value.trim()));
+    resBox.children[hi]?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") { if (hits[hi]) pick(hits[hi]); }
+  else if (e.key === "Escape") { e.stopPropagation(); if (resBox.classList.contains("show")) closeResults(); else { qIn.value = ""; qIn.blur(); } }
+});
+addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !== qIn) { e.preventDefault(); qIn.focus(); } });
+{ const q = new URLSearchParams(location.search);   // test hook: ?search=jiang[&enter]
+  if (q.has("preview")) setTimeout(() => previewEgo(q.get("preview")), 3500);   // test hook: show this person's network as the panel hover does
+  if (q.has("focus")) focusId = q.get("focus");   // test hook: ?ego=<id>&focus=<collaborator id>
+  if (q.has("popup")) setTimeout(() => setPop(true), 60);   // test hook
+  if (q.has("panel")) setTimeout(() => setPanel(true), 60);   // test hook
+  if (q.has("tipedge")) setTimeout(() => { const el = gH.selectAll("line").nodes()[+q.get("tipedge")];
+    if (el) el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: 640, clientY: 300 })); }, 80);   // test hook
+  if (q.has("search")) setTimeout(() => { qIn.value = q.get("search"); runSearch(); if (q.has("enter") && hits[0]) pick(hits[0]); }, 50); }
+
+addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (fpop.classList.contains("show")) { setPop(false); return; }
+  if (state.ego) state.ego = null; else if (state.college !== null) state.college = null; else return;
+  render();
+});
+
+// ---------- helpers ----------
+function deptShades(deptNames, hex) {
+  // Distinct colours that stay in the college's colour family. Candidates are never more vivid than the college
+  // colour, stay in a mid lightness band, and spread over a hue range that starts at +-20deg and only widens
+  // (up to +-44deg) if the department count needs it. They are picked greedily so each new department is as far
+  // (CIELAB distance) from the ones already chosen as possible; the first (largest) department keeps the college colour.
+  const base = d3.hsl(hex), baseLab = d3.lab(base), n = deptNames.length, out = {};
+  const dist = (a, b) => Math.hypot(a.l - b.l, a.a - b.a, a.b - b.b), TARGET = 11;
+  let chosen = [];
+  for (const hr of [20, 26, 32, 38, 44]) {
+    const cands = [];
+    for (let i = -6; i <= 6; i++) for (let j = -3; j <= 3; j++) for (let k = 0; k < 3; k++) {
+      const l = Math.min(isLight() ? .6 : .74, Math.max(isLight() ? .28 : .34, base.l + (j < 0 ? .13 : .18) * j / 3));
+      const c = d3.hsl(base.h + i * hr / 6, Math.max(.25, base.s - .30 * k / 2), l);
+      cands.push({ hex: c.formatHex(), lab: d3.lab(c) });
+    }
+    chosen = [cands.reduce((a, b) => dist(a.lab, baseLab) <= dist(b.lab, baseLab) ? a : b)];
+    while (chosen.length < n) {
+      let best = null, bd = -1;
+      for (const c of cands) { const m = Math.min(...chosen.map(x => dist(c.lab, x.lab))); if (m > bd) { bd = m; best = c; } }
+      chosen.push(best);
+    }
+    let m = Infinity;
+    for (let x = 0; x < chosen.length; x++) for (let y = x + 1; y < chosen.length; y++) m = Math.min(m, dist(chosen[x].lab, chosen[y].lab));
+    if (n < 2 || m >= TARGET) break;
+  }
+  deptNames.forEach((d, i) => out[d] = chosen[i % chosen.length].hex);   // deptNames is ordered largest first
+  return out;
+}
+function showTip(ev, n) {
+  const deg = adj.get(n.id)?.size || 0;
+  tip.innerHTML = `<div class="n">${n.nm}</div><div class="c"><i style="background:${COL[n.c]}"></i>${D.colleges[n.c]}</div>` +
+    (n.d ? `<div class="d">${n.d}</div>` : "") +
+    (n.f ? `<div class="cf">◆ CFEP · ${pEsc(D.cfep[n.k] || "")}</div>` : "") +
+    `<div class="r"><span>${state.psi ? "PSI papers" : "Publications"}</span><b>${n.p}</b></div><div class="r" style="margin-top:6px;padding-top:6px"><span>Collaborators</span><b>${deg}</b></div>`;
+  tip.style.display = "block"; moveTip(ev);
+}
+function showEdgeTip(ev, e) {
+  const a = e.source, b = e.target;
+  const row = n => `<div><i style="background:${COL[n.c]}"></i>${n.nm}</div>`;
+  const papers = (e.papers || []).map(t => `<p>${t.length >= 70 ? t + "…" : t}</p>`).join("");
+  tip.innerHTML = `<div class="pair">${row(a)}${row(b)}</div>` +
+    `<div class="r"><span>Shared papers</span><b>${e.w}</b></div>` +
+    (papers ? `<div class="papers"><h4>Papers</h4>${papers}</div>` : "");
+  tip.style.display = "block"; moveTip(ev);
+}
+function moveTip(ev) {
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(innerWidth - w - 12, ev.clientX + 16) + "px";
+  tip.style.top = Math.min(innerHeight - h - 12, ev.clientY + 16) + "px";
+}
+const hideTip = () => tip.style.display = "none";
+
+// focus styling: set of ids to keep bright (null = all)
+function spot(pred) {
+  const bright = pred ? new Set(nodes.filter(pred).map(n => n.id)) : null;
+  gN.selectAll(".node").classed("dim", d => bright && !bright.has(d.id));
+  gE.selectAll(".edge").classed("dim", d => bright && !(bright.has(d.source.id) && bright.has(d.target.id)));
+}
+function applyEgo() {
+  if (!state.ego) { gN.selectAll(".node").classed("pin", false); spot(state.dept !== null ? (n => n.d === state.dept) : null); gE.selectAll(".edge").classed("hi", false); return; }
+  const nb = new Set([state.ego, ...(adj.get(state.ego) || [])]);
+  gN.selectAll(".node").classed("dim", d => !nb.has(d.id)).classed("pin", d => d.id === state.ego);
+  gE.selectAll(".edge").classed("hi", d => d.source.id === state.ego || d.target.id === state.ego)
+    .classed("dim", d => !(d.source.id === state.ego || d.target.id === state.ego));
+  // a collaborator hovered in the panel: ring it and pick out its line to the selected person, the rest of the network stays visible
+  const f = focusId !== state.ego && nb.has(focusId) ? focusId : null;
+  gN.selectAll(".node").classed("focus", d => d.id === f).classed("sub", d => f !== null && d.id !== f && d.id !== state.ego && nb.has(d.id));
+  gE.selectAll(".edge").classed("focus", d => f !== null && ((d.source.id === state.ego && d.target.id === f) || (d.target.id === state.ego && d.source.id === f)));
+}
+
+// after hovering an edge, put its ego-mode highlight back
+function applyEgoEdge(d) { if (state.ego) gE.selectAll(".edge").filter(x => x === d).classed("hi", d.source.id === state.ego || d.target.id === state.ego); }
+
+// ---------- the scene ----------
+// Everything for one period (and filter set) is drawn ONCE: every person and every line, grouped by college.
+// Changing the view (all colleges <-> a college) never creates or deletes anything; it shows/hides groups and
+// glides the nodes that stay on screen. Every frame is computed from "where things are now" to "where they end up",
+// so clicking again in the middle of a move simply starts a new move from wherever things are.
+const SVGNS = "http://www.w3.org/2000/svg", NGROUP = 11;   // line groups: 0..9 = inside one college, 10 = between colleges
+let scene = null, viewShown, anim = 0, animating = false, nodeG = [], edgeG = [], hitG = [];
+const layoutCache = new Map();    // "scene|view|W|H" -> laid-out view; a view is calculated once and then reused
+const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+const jit = (id, salt) => (hash(id + salt) % 10000) / 10000 - .5;        // deterministic "random" in [-.5, .5): the same layout every time
+const sceneKey = () => [state.block, state.psi, state.cfep].join("|");
+const diamondPath = "M0,-1.3L1.05,0L0,1.3L-1.05,0Z";
+
+function makeScene() {
+  const data = D.blocks[state.block], psi = state.psi ? (D.psi[state.block] || { n: {}, e: [] }) : null;   // PSI filter: people + PSI co-authorships only
+  const all = data.n.filter(r => (!psi || psi.n[r[0]] !== undefined) && (!state.cfep || r[5] === 1))
+    .map(r => ({ id: r[0], nm: r[1], c: r[2], d: (r[3] || "Other").trim() || "Other", p: psi ? psi.n[r[0]] : r[4], f: r[5] === 1, k: r[6], x: 0, y: 0, r: 5, g: r[2] }));
+  const byAll = new Map(all.map(n => [n.id, n]));
+  const edgesAll = (psi ? psi.e : data.e).filter(e => byAll.has(e[0]) && byAll.has(e[1])).map(e => {
+    const s = byAll.get(e[0]), t = byAll.get(e[1]); return { source: s, target: t, w: e[2], papers: e[3] || [], xc: s.c !== t.c, g: s.c !== t.c ? 10 : s.c };
+  });
+  const byCol = d3.range(10).map(c => all.filter(n => n.c === c)), byG = d3.range(NGROUP).map(g => edgesAll.filter(e => e.g === g));
+  const counts = {}; all.forEach(n => counts[n.c] = (counts[n.c] || 0) + 1);
+  return { key: sceneKey(), all, byAll, edgesAll, byCol, byG, counts, wMax: d3.max(edgesAll, e => e.w) || 1 };
+}
+
+function buildDom() {
+  [gE, gH, gN, gL].forEach(g => g.selectAll("*").remove());
+  const wS = d3.scaleLinear().domain([1, Math.max(2, scene.wMax)]).range([.8, 4]);
+  edgeG = d3.range(NGROUP).map(() => gE.append("g").attr("class", "eg off"));
+  hitG = d3.range(NGROUP).map(() => gH.append("g").attr("class", "hg off"));
+  nodeG = d3.range(10).map(() => gN.append("g").attr("class", "ng off"));
+  for (let g = 0; g < NGROUP; g++) {
+    edgeG[g].selectAll("line").data(scene.byG[g]).enter().append("line").attr("class", "edge").attr("stroke-width", d => wS(d.w)).each(function (d) { d.el = this; });
+    hitG[g].selectAll("line").data(scene.byG[g]).enter().append("line").attr("class", "hit").each(function (d) { d.hel = this; })
+      .on("mouseover", (ev, d) => { d3.select(d.el).classed("hi", true); showEdgeTip(ev, d); })
+      .on("mousemove", moveTip)
+      .on("mouseout", (ev, d) => { d3.select(d.el).classed("hi", false); applyEgoEdge(d); hideTip(); });
+  }
+  for (let c = 0; c < 10; c++) {
+    nodeG[c].selectAll(".node").data(scene.byCol[c], d => d.id).enter()
+      .append(d => document.createElementNS(SVGNS, d.f ? "path" : "circle"))                  // CFEP members are diamonds
+      .attr("class", "node")
+      .each(function (d) { d.el = this; if (d.f) this.setAttribute("d", diamondPath); else this.setAttribute("r", 1); })   // unit shapes, sized by scale()
+      .on("mouseover", (ev, d) => showTip(ev, d)).on("mousemove", moveTip).on("mouseout", hideTip)
+      .on("click", (ev, d) => { ev.stopPropagation(); state.ego = state.ego === d.id ? null : d.id; crumbs(); applyEgo(); panelRender(); })
+      .call(d3.drag()
+        .on("start", (e, d) => { if (animating || !sim) return; if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+        .on("drag", (e, d) => { if (!animating) { d.fx = e.x; d.fy = e.y; } })
+        .on("end", (e, d) => { if (!e.active && sim) sim.alphaTarget(0); d.fx = d.fy = null; }));
+  }
+}
+
+// forces shared by the layout calculation and the live (draggable) simulation; nodes need .g (cluster key) and .r
+function makeSim(ns, links, anchor, view) {
+  return d3.forceSimulation(ns)
+    .force("link", d3.forceLink(links).id(d => d.id)
+      .distance(d => d.xc ? 62 : d.source.g === d.target.g ? 18 : (view !== null ? lerp(38, 62, GROUP_BLEND) : 38))
+      .strength(d => d.xc ? .03 : d.source.g === d.target.g ? .28 : (view !== null ? lerp(.28, .03, GROUP_BLEND) : .28)))
+    .force("charge", d3.forceManyBody().strength(-110))
+    .force("x", d3.forceX(d => anchor.get(d.g).x).strength(.9))
+    .force("y", d3.forceY(d => anchor.get(d.g).y).strength(.9))
+    .force("collide", d3.forceCollide(d => (d.f ? d.r * 1.3 : d.r) + 3))   // diamonds are taller than circles of the same size
+    .alphaDecay(.03);
+}
+
+// where everything goes in a view: calculated on throw-away copies (so it can run any time), then cached
+function layoutFor(view, W, H) {
+  const key = scene.key + "|" + view + "|" + W + "|" + H, hit = layoutCache.get(key); if (hit) return hit;
+  const vis = view === null ? scene.all : scene.byCol[view], es = view === null ? scene.edgesAll : scene.byG[view];
+  const gk = view === null ? (n => n.c) : (n => n.d);
+  const rS = d3.scaleSqrt().domain([1, Math.max(2, d3.max(vis, n => n.p) || 2)]).range([3.5, 20]);
+  const r = new Map(vis.map(n => [n.id, rS(Math.max(1, n.p))]));
+  const keys = [...new Set(vis.map(gk))].sort((a, b) => String(a).localeCompare(String(b)));
+  let R = Math.min(W, H) * (view === null ? .44 : .38);
+  if (view !== null) {
+    // Inside a college, size the ring from the departments themselves: just far enough apart that neighbouring clusters
+    // (roughly 8*sqrt(members)+12 px wide) clear each other with room for a label, never larger than the full-size ring.
+    const cnt = new Map(); vis.forEach(n => cnt.set(gk(n), (cnt.get(gk(n)) || 0) + 1));
+    const rad = k => 8 * Math.sqrt(cnt.get(k)) + 12, m = keys.length, GAP = 50;
+    R = m < 2 ? 0 : Math.min(R, Math.max(...keys.map((k, i) => (rad(k) + rad(keys[(i + 1) % m]) + GAP) / (2 * Math.sin(Math.PI / m)))));
+  }
+  const anchor = new Map(); keys.forEach((k, i) => { const a = 2 * Math.PI * i / keys.length - Math.PI / 2; anchor.set(k, { x: W / 2 + R * Math.cos(a), y: H / 2 + R * Math.sin(a) }); });
+  const cp = vis.map(n => { const a = anchor.get(gk(n)); return { id: n.id, g: gk(n), f: n.f, r: r.get(n.id), x: a.x + jit(n.id, "x") * 60, y: a.y + jit(n.id, "y") * 60 }; });
+  const s = makeSim(cp, es.map(e => ({ source: e.source.id, target: e.target.id, xc: e.xc })), anchor, view).stop();
+  for (let i = 0, n = vis.length > 800 ? 220 : 150; i < n; i++) s.tick();
+  const entry = { pos: new Map(cp.map(n => [n.id, [n.x, n.y]])), r, anchor, keys, gk };
+  layoutCache.set(key, entry); return entry;
+}
+
+// camera that frames a laid-out view (labels are estimated from their text length, since they do not exist yet)
+function fitFromLayout(view, L, W, H) {
+  const vis = view === null ? scene.all : scene.byCol[view];
+  if (!vis.length) return d3.zoomIdentity;
+  const mem = new Map(); vis.forEach(n => { const p = L.pos.get(n.id), k = L.gk(n); if (!mem.has(k)) mem.set(k, []); mem.get(k).push({ x: p[0], y: p[1], r: L.r.get(n.id) }); });
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  mem.forEach(list => list.forEach(m => { x0 = Math.min(x0, m.x - m.r); x1 = Math.max(x1, m.x + m.r); y0 = Math.min(y0, m.y - m.r); y1 = Math.max(y1, m.y + m.r); }));
+  const padL = W > 760 ? 290 : 24, padR = panelOpen && W > 760 ? 380 : 24, padT = 56, padB = W > 760 ? 90 : 300, aw = W - padL - padR, ah = H - padT - padB, kMax = view !== null ? 2.2 : 1.4;
+  let k = Math.min(aw / (x1 - x0), ah / (y1 - y0), kMax);
+  const labels = [...mem].map(([key, list]) => { const [lx, ly] = labelXY(list, W, H), text = String(view === null ? D.colleges[key] : key); return { lx, ly, w: Math.min(text.length, 28) * 7.3 }; });
+  labels.forEach(l => { x0 = Math.min(x0, l.lx - l.w / 2 / k); x1 = Math.max(x1, l.lx + l.w / 2 / k); y0 = Math.min(y0, l.ly - 14 / k); y1 = Math.max(y1, l.ly + 4 / k); });
+  k = Math.min(aw / (x1 - x0), ah / (y1 - y0), kMax);
+  return d3.zoomIdentity.translate(padL + (aw - k * (x1 - x0)) / 2 - k * x0, padT + (ah - k * (y1 - y0)) / 2 - k * y0).scale(k);
+}
+
+function labelXY(members, W, H) {      // labels sit just outside each cluster, away from the centre, so nodes never cover them
+  let sx = 0, sy = 0; for (const n of members) { sx += n.x; sy += n.y; }
+  const cx = sx / members.length, cy = sy / members.length; let ext = 0;
+  for (const n of members) ext = Math.max(ext, Math.hypot(n.x - cx, n.y - cy) + n.r);
+  let dx = cx - W / 2, dy = cy - H / 2; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+  return [cx + dx * (ext + 16), cy + dy * (ext + 16) + 4];
+}
+function placeLabels(W, H) { for (const g of groups) { if (!g.members.length) continue; const [x, y] = labelXY(g.members, W, H); g.el.setAttribute("x", x); g.el.setAttribute("y", y); } }
+const place = (n, x, y, r) => { n.x = x; n.y = y; n.r = r; n.el.setAttribute("transform", "translate(" + x + "," + y + ") scale(" + r + ")"); };
+const setEdge = e => { for (const el of [e.el, e.hel]) { el.setAttribute("x1", e.source.x); el.setAttribute("y1", e.source.y); el.setAttribute("x2", e.target.x); el.setAttribute("y2", e.target.y); } };
+const fade = (sel, v, ms, delay) => { const el = sel.node(); el.style.transition = ms ? "opacity " + ms + "ms ease " + (delay || 0) + "ms" : "none"; el.style.opacity = v; };
+
+function refreshUI() { legend(scene.counts); crumbs(); applyEgo(); filtersUI(); panelRender(); statsRender(); }
+
+// node colour: the college colour (as a CSS variable), or inside a college the department's own shade of it
+function makeClr(view, ns) {
+  if (view === null) return n => "var(--col" + n.c + ")";
+  const cnt = {}; ns.forEach(n => cnt[n.d] = (cnt[n.d] || 0) + 1);
+  const depts = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b)), sh = deptShades(depts, COL[view]);   // biggest departments get the best-separated colours
+  curDeptClr = sh; return n => sh[n.d];
+}
+
+// ---------- show a view: animate = glide from what is on screen now, otherwise jump ----------
+function showView(view, animate) {
+  const W = innerWidth, H = innerHeight, L = layoutFor(view, W, H), run = ++anim;
+  viewShown = view; if (sim) { sim.stop(); sim = null; }
+  // 1. what the rest of the page reads
+  nodes = view === null ? scene.all : scene.byCol[view];
+  byId = new Map(nodes.map(n => [n.id, n]));
+  edges = view === null ? scene.edgesAll : scene.byG[view];
+  adj = new Map(); edges.forEach(e => { const a = e.source.id, b = e.target.id; if (!adj.has(a)) adj.set(a, new Set()); if (!adj.has(b)) adj.set(b, new Set()); adj.get(a).add(b); adj.get(b).add(a); });
+  if (state.ego && !byId.has(state.ego)) state.ego = null;
+  if (view === null || state.ego || !nodes.some(n => n.d === state.dept)) state.dept = null;   // department focus only applies inside a college
+  nodes.forEach(n => n.g = L.gk(n)); groupKey = n => n.g;
+  const clr = makeClr(view, nodes);
+  nodes.forEach(n => n.el.style.fill = clr(n));
+  // 2. labels: the old ones fade out where they are, new ones are made (invisible until the move is half done)
+  gL.selectAll("text.glabel").classed("old", true).classed("cur", false); setTimeout(() => gL.selectAll("text.old").remove(), 320);
+  groups = L.keys.map(k => ({ k, label: String(view === null ? D.colleges[k] : k), members: nodes.filter(n => n.g === k) }));
+  groups.forEach(g => { g.el = gL.append("text").attr("class", "glabel cur pre").text(g.label.length > 28 ? g.label.slice(0, 27) + "…" : g.label).node(); d3.select(g.el).append("title").text(g.label); });
+  labelSel = d3.selectAll(groups.map(g => g.el));
+  // 3. which groups show, hide or move
+  const tN = c => view === null || c === view, curN = c => !nodeG[c].classed("off");
+  const tE = g => view === null || g === view, curE = g => !edgeG[g].classed("off");
+  const moving = [], enteringN = [], exitingN = [];
+  for (let c = 0; c < 10; c++) {
+    if (tN(c) && curN(c)) scene.byCol[c].forEach(n => { const p = L.pos.get(n.id); moving.push({ n, x0: n.x, y0: n.y, r0: n.r, x1: p[0], y1: p[1], r1: L.r.get(n.id) }); });
+    else if (tN(c)) { enteringN.push(c); scene.byCol[c].forEach(n => { const p = L.pos.get(n.id); place(n, p[0], p[1], L.r.get(n.id)); }); }   // appears where it will stay
+    else if (curN(c)) exitingN.push(c);
+  }
+  const stayE = [], enterE = [], exitE = [];
+  for (let g = 0; g < NGROUP; g++) { if (tE(g) && curE(g) && scene.byG[g].length <= 800) stayE.push(g); else if (tE(g)) enterE.push(g); else if (curE(g)) exitE.push(g); }
+  const movingEdges = stayE.flatMap(g => scene.byG[g]);
+  const T0 = d3.zoomTransform(svg.node()), T1 = fitFromLayout(view, L, W, H);
+  userZoomed = false;
+  // 4. the finished state: exact positions, groups on/off, lines placed, camera, live simulation
+  const finish = () => {
+    if (run !== anim) return;
+    for (const m of moving) place(m.n, m.x1, m.y1, m.r1);
+    for (let c = 0; c < 10; c++) { nodeG[c].classed("off", !tN(c)); if (tN(c)) fade(nodeG[c], 1, 0); }
+    for (let g = 0; g < NGROUP; g++) {
+      edgeG[g].classed("off", !tE(g)); hitG[g].classed("off", !tE(g));
+      if (!tE(g)) continue;
+      for (const e of scene.byG[g]) setEdge(e);
+      if (enterE.includes(g) && animate) fade(edgeG[g], 1, 380, 0); else fade(edgeG[g], 1, 0);
+    }
+    placeLabels(W, H); groups.forEach(g => g.el.classList.remove("pre"));
+    if (!userZoomed) { svg.call(zoom.transform, T1); }
+    animating = false; document.documentElement.classList.remove("moving");
+    sim = makeSim(nodes, edges, L.anchor, view).alpha(0).stop().on("tick", drawLive);
+  };
+  if (!animate) {
+    nodeG.forEach(g => g.classed("off", true)); edgeG.forEach(g => g.classed("off", true));
+    for (let c = 0; c < 10; c++) if (tN(c)) scene.byCol[c].forEach(n => { const p = L.pos.get(n.id); place(n, p[0], p[1], L.r.get(n.id)); });
+    for (const m of moving) place(m.n, m.x1, m.y1, m.r1);
+    placeLabels(W, H); finish(); refreshUI(); return;
+  }
+  animating = true; document.documentElement.classList.add("moving");
+  for (const c of enteringN) { nodeG[c].classed("off", false); fade(nodeG[c], 0, 0); }
+  for (const g of enterE) { edgeG[g].classed("off", false); fade(edgeG[g], 0, 0); }
+  void svg.node().getBoundingClientRect();                       // commit the starting state so the fades below actually animate
+  for (const c of enteringN) fade(nodeG[c], 1, 420, 240);
+  for (const c of exitingN) fade(nodeG[c], 0, 220, 0);
+  for (const g of exitE) fade(edgeG[g], 0, 160, 0);
+  for (const g of stayE) fade(edgeG[g], 1, 120, 0);
+  for (const c of d3.range(10)) if (tN(c) && curN(c) && !enteringN.includes(c)) fade(nodeG[c], 1, 120, 0);
+  placeLabels(W, H); refreshUI();
+  const t0 = performance.now(), DUR = 700, view0 = u => [(W / 2 - u.x) / u.k, (H / 2 - u.y) / u.k, W / u.k], zi = d3.interpolateZoom(view0(T0), view0(T1));
+  let labelsOn = false;
+  const step = now => {
+    if (run !== anim) return;                                    // a newer view change took over
+    const t = Math.min(1, (now - t0) / DUR), e = d3.easeCubicInOut(t);
+    for (const m of moving) place(m.n, m.x0 + (m.x1 - m.x0) * e, m.y0 + (m.y1 - m.y0) * e, m.r0 + (m.r1 - m.r0) * e);
+    for (const ed of movingEdges) { const el = ed.el; el.setAttribute("x1", ed.source.x); el.setAttribute("y1", ed.source.y); el.setAttribute("x2", ed.target.x); el.setAttribute("y2", ed.target.y); }
+    placeLabels(W, H);
+    if (!labelsOn && t > .45) { labelsOn = true; groups.forEach(g => g.el.classList.remove("pre")); }
+    if (!userZoomed) {
+      const [cx, cy, w] = zi(e), k = W / w, T = d3.zoomIdentity.translate(W / 2 - cx * k, H / 2 - cy * k).scale(k);
+      root.attr("transform", T); gL.style("--k", k); svg.node().__zoom = T;
+    }
+    if (t < 1) requestAnimationFrame(step); else finish();
+  };
+  requestAnimationFrame(step);
+}
+
+function drawLive() {                    // while a node is being dragged
+  for (const n of nodes) n.el.setAttribute("transform", "translate(" + n.x + "," + n.y + ") scale(" + n.r + ")");
+  for (const e of edges) setEdge(e);
+  placeLabels(innerWidth, innerHeight);
+}
+
+// ---------- entry points ----------
+function showEmpty() {
+  nodes = []; edges = []; byId = new Map(); adj = new Map(); groups = []; labelSel = d3.selectAll([]); sim = null;
+  [gE, gH, gN, gL].forEach(g => g.selectAll("*").remove());
+  const on = [state.psi && "PSI", state.cfep && "CFEP"].filter(Boolean), psi = state.psi ? (D.psi[state.block] || { n: {} }) : null;
+  document.getElementById("empty-t").textContent = on.length ? "No " + on.join(" + ") + " faculty in " + PERIODS[state.block] : "Nothing to show";
+  document.getElementById("empty-s").textContent = state.psi && psi && !Object.keys(psi.n).length ? "PSI data begins in 2014. Try a later period." : (on.length ? "Try another period or remove a filter." : "");
+  document.getElementById("empty").classList.add("show"); root.style("transition", "none").style("opacity", 1);
+  viewShown = state.college; refreshUI();
+}
+function rebuildScene() {                // first load, another period, or a filter: build everything again and fade it in
+  const run = ++anim, first = !scene; animating = false; document.documentElement.classList.remove("moving");
+  root.style("transition", first ? "none" : "opacity .15s ease").style("opacity", 0);
+  setTimeout(() => {
+    if (run !== anim) return;
+    scene = makeScene();
+    if (!scene.all.length) { showEmpty(); return; }
+    document.getElementById("empty").classList.remove("show");
+    buildDom(); sim = null; showView(state.college, false); rendered = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => root.style("transition", "opacity .45s ease").style("opacity", 1)));
+    precompute();
+  }, first ? 0 : 160);
+}
+function render() {
+  if (!scene || scene.key !== sceneKey()) { rebuildScene(); return; }
+  if (!scene.all.length) { refreshUI(); return; }
+  if (state.college !== viewShown) showView(state.college, true); else refreshUI();      // same view (e.g. a person was picked): no movement
+}
+function precompute() {                  // calculate the other views while the browser is idle, so the first click on each one is instant
+  const W = innerWidth, H = innerHeight, key = scene.key;
+  const order = [null, ...d3.range(10).filter(c => scene.counts[c]).sort((a, b) => scene.counts[b] - scene.counts[a])];
+  const next = () => { if (!scene || scene.key !== key || innerWidth !== W || innerHeight !== H) return; const v = order.shift(); if (v === undefined) return; layoutFor(v, W, H); setTimeout(next, 80); };
+  setTimeout(next, 600);
+}
+// frame the current picture again (used when the Insights panel opens or closes)
+function fit(W, H, ms) {
+  if (userZoomed || animating || !nodes.length) return;
+  const t = fitFromLayout(state.college, layoutFor(state.college, W, H), W, H);
+  (ms ? svg.transition().duration(ms) : svg).call(zoom.transform, t);
+}
+addEventListener("resize", () => { layoutCache.clear(); if (scene && scene.all.length) { anim++; showView(state.college, false); } });
+requestAnimationFrame(() => setTimeout(render, 0));   // let the header / legend paint before the layout is computed
+</script>
+</body>
+</html>

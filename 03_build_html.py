@@ -30,6 +30,7 @@ NET_DIR   = "network_data"
 TEMPLATE  = "network_template.html"
 OUTPUT    = "ncstate_research_networks.html"
 PSI_PUB_CSV = "PSI_NC_affiliation.csv"
+PSI_JSON = "psi_net.json"   # fallback copy of the PSI data when the CSV is not available
 
 COLLEGE_COLORS = {
     "College of Engineering":                   "#0072B2",
@@ -98,8 +99,14 @@ if os.path.exists(PSI_PUB_CSV):
         edges = [{"s": a, "t": b, "w": info["w"], "p": info["p"]}
                  for (a, b), info in psi_edges_by_year.get(yr, {}).items()]
         PSI_NET[yr] = {"n": nodes, "e": edges}
+    with open(PSI_JSON, "w") as f:
+        json.dump(PSI_NET, f, separators=(",", ":"))
     print(f"Loaded PSI collaboration data: {sum(len(v['n']) for v in PSI_NET.values())} "
           f"person-year rows across {len(PSI_NET)} years from {PSI_PUB_CSV}")
+elif os.path.exists(PSI_JSON):
+    with open(PSI_JSON) as f:
+        PSI_NET = {int(k): v for k, v in json.load(f).items()}
+    print(f"  {PSI_PUB_CSV} not found — loaded saved PSI data from {PSI_JSON}")
 else:
     print(f"  WARNING: {PSI_PUB_CSV} not found — PSI Focus tab will be empty")
 
