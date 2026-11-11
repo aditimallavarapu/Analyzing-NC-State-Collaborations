@@ -13,7 +13,7 @@ INPUT (same folder):
   ui_template.html              (the page; contains the __DATA__ placeholder)
 
 OUTPUT (same folder):
-  ncstate_research_networks_new.html   - open this in any browser
+  index.html   - open this in any browser (GitHub Pages also serves it as the site's front page)
 
 Each 5-year block is the union of its years: a person's publications are
 summed, edge weights are summed, and people with no publications in the block
@@ -33,7 +33,7 @@ NET_DIR = "network_data"
 TEMPLATE = "ui_template.html"
 PSI_JSON = "psi_net.json"
 CFEP_CSV = "CFEP_2026_PARTNERS - CFEP_Personnel_Oct_2025_By_Cluster.csv"
-OUTPUT = "ncstate_research_networks_new.html"
+OUTPUT = "index.html"
 
 # key = block start year; the page's period dropdown is built from these
 BLOCKS = {2006: range(2006, 2011), 2011: range(2011, 2016),
