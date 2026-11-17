@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script>try { var t = localStorage.getItem("theme"); document.documentElement.dataset.theme = t === "light" ? "light" : "dark"; } catch (e) { document.documentElement.dataset.theme = "dark"; }</script>
+<title>NC State Research Networks · Year by Year</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+/* Same look as ui_template.html: the tokens, header, legend, filters, stats and tooltip are copied from it unchanged. */
+:root {
+  color-scheme: dark;
+  --bg: #121211; --bg-rgb: 18,18,17; --ink: 255,255,255;
+  --panel: rgba(30,30,28,.82); --pop: rgba(30,30,28,.97); --tip: rgba(34,34,32,.96); --solid: #1e1e1c;
+  --line: rgba(var(--ink),.09);
+  --text: #f0efec; --muted: #a3a29a; --faint: #6f6e68; --accent: #f0efec; --brand: #ffffff;
+  --gold: #e8d9a8; --ring: #ffffff; --shadow: rgba(0,0,0,.45); --edge-op: .07; --badge-bg: #ffffff; --badge-fg: #121211;
+  --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f5f1; --bg-rgb: 246,245,241; --ink: 20,20,18;
+  --panel: rgba(255,255,255,.84); --pop: rgba(255,255,255,.98); --tip: rgba(255,255,255,.98); --solid: #ffffff;
+  --text: #1b1b19; --muted: #5d5c56; --faint: #8a8981; --accent: #1b1b19; --brand: #1b1b19;
+  --gold: #8a6d1b; --ring: #121211; --shadow: rgba(30,30,25,.16); --edge-op: .17; --badge-bg: #1b1b19; --badge-fg: #ffffff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; }
+#stage { position: fixed; inset: 0; }
+#stage svg { width: 100%; height: 100%; display: block; cursor: grab; }
+#stage svg:active { cursor: grabbing; }
+
+/* top bar */
+header { position: fixed; top: 0; left: 0; right: 0; z-index: 10; padding: 18px 24px 4px; pointer-events: none; }
+header::before { content: ""; position: absolute; left: 0; top: 0; width: 640px; height: 90px; z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(var(--bg-rgb),.96) 55%, rgba(var(--bg-rgb),0));
+  -webkit-mask-image: linear-gradient(to right, #000 70%, transparent); mask-image: linear-gradient(to right, #000 70%, transparent); }
+header > * { pointer-events: auto; }
+.hl { display: inline-flex; flex-direction: column; gap: 14px; pointer-events: none; }
+.hl > * { pointer-events: auto; }
+.toprow { display: flex; align-items: center; gap: 24px; white-space: nowrap; width: 0; min-width: 100%; }
+.toprow > * { flex-shrink: 0; }
+.filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.brand img { height: 28px; width: auto; display: block; border-radius: 2px; }
+.brand span { font-size: 16.5px; font-weight: 600; letter-spacing: -.01em; color: var(--brand); line-height: 28px; }
+nav { display: flex; align-items: center; gap: 6px; font-size: 13px; min-width: 0; }
+nav .sep { color: var(--faint); }
+nav a { color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 6px; white-space: nowrap; }
+nav a:hover { color: var(--text); background: rgba(var(--ink),.06); }
+nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space: nowrap; }
+.select { position: relative; }
+.select select { appearance: none; -webkit-appearance: none; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px; padding: 6px 32px 6px 12px; font: 600 13px var(--font);
+  cursor: pointer; backdrop-filter: blur(10px); }
+.select select:hover { border-color: rgba(var(--ink),.22); }
+.select select:focus-visible { outline: 2px solid rgba(var(--ink),.4); outline-offset: 2px; }
+.select::after { content: ""; position: absolute; right: 12px; top: 50%; width: 6px; height: 6px; margin-top: -5px;
+  border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); pointer-events: none; }
+.select option { background: var(--solid); }
+#tr { position: fixed; top: 18px; right: 24px; z-index: 11; display: flex; gap: 10px; align-items: center; }
+.tbtn { padding: 7px 9px; }
+.tbtn svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tbtn:hover svg { stroke: var(--text); }
+:root:not([data-theme="light"]) .i-moon, :root[data-theme="light"] .i-sun { display: none; }
+
+/* filters */
+.fwrap { position: relative; }
+.fbtn { display: flex; align-items: center; gap: 8px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 10px; padding: 6px 12px; font: 600 13px var(--font); cursor: pointer; backdrop-filter: blur(10px); }
+.fbtn:hover, .fbtn.open { border-color: rgba(var(--ink),.3); }
+.fbtn svg { width: 14px; height: 14px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; }
+.badge { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--badge-bg); color: var(--badge-fg);
+  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.badge.show { display: inline-block; }
+#fpop { position: absolute; top: calc(100% + 6px); left: 0; width: 330px; display: none; padding: 8px;
+  background: var(--pop); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px var(--shadow); backdrop-filter: blur(14px); }
+#fpop.show { display: block; }
+#fpop h3 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 6px 8px 8px; }
+.opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 8px; background: none; border: 0; border-radius: 10px;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.opt:hover { background: rgba(var(--ink),.06); }
+.opt div { flex: 1; min-width: 0; }
+.opt b { display: block; font-size: 13px; font-weight: 600; }
+.opt small { display: block; font-size: 11.5px; color: var(--faint); margin-top: 2px; line-height: 1.35; }
+.sw { width: 34px; height: 20px; border-radius: 10px; background: rgba(var(--ink),.14); position: relative; flex-shrink: 0; transition: background .15s; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.opt.on .sw { background: #3987e5; }
+.opt.on .sw::after { transform: translateX(14px); }
+#chips { display: flex; gap: 6px; }
+.chip { display: flex; align-items: center; gap: 7px; background: rgba(var(--ink),.1); color: var(--text); border: 0; border-radius: 100px;
+  padding: 5px 10px 5px 12px; font: 600 12.5px var(--font); cursor: pointer; }
+.chip:hover { background: rgba(var(--ink),.17); }
+.chip span { color: var(--muted); font-size: 11px; }
+#empty { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 4; pointer-events: none; text-align: center;
+  color: var(--muted); font-size: 14px; line-height: 1.6; }
+#empty.show { display: flex; }
+#empty b { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+
+/* legend */
+#legend { position: fixed; left: 24px; bottom: 24px; z-index: 10; width: 244px; padding: 14px 8px 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px);
+  max-height: calc(100vh - 170px); display: flex; flex-direction: column; }
+#legend h2 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 0 10px 8px; flex-shrink: 0; }
+#lg { overflow-y: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: rgba(var(--ink),.18) transparent; }
+.lg { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px; background: none; border: 0;
+  border-radius: 8px; color: var(--muted); font: 500 13px var(--font); cursor: default; text-align: left; transition: background .12s, color .12s; }
+.lg:hover { background: rgba(var(--ink),.06); color: var(--text); }
+.lg i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.lg span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg b { font-weight: 500; font-variant-numeric: tabular-nums; color: var(--faint); font-size: 12px; }
+
+/* stats + hint */
+#stats { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 22px; align-items: baseline; white-space: nowrap;
+  width: 0; min-width: 100%; margin-top: -4px;
+  text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg), 0 0 14px var(--bg); }
+#stats .st { display: flex; align-items: baseline; gap: 5px; cursor: default; }
+#stats b { font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+#stats b em { font-style: normal; font-size: 11.5px; font-weight: 500; color: var(--muted); margin-left: 4px; letter-spacing: 0; }
+#stats small { font-size: 12px; color: var(--muted); }
+#hint { position: fixed; left: 292px; right: 24px; bottom: 104px; text-align: center; font-size: 12px; color: var(--muted);
+  z-index: 5; white-space: nowrap; pointer-events: none;
+  text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg), 0 0 10px var(--bg), 0 0 14px var(--bg); }
+
+/* playback bar: the period dropdown of the main page, turned into a timeline */
+#player { position: fixed; left: 292px; right: 24px; bottom: 24px; margin-inline: auto; max-width: 660px; z-index: 10;
+  display: flex; align-items: center; gap: 14px; padding: 10px 14px 10px 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); }
+#play { width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--text); cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; }
+#play:hover { opacity: .88; }
+#play:focus-visible { outline: 2px solid rgba(var(--ink),.4); outline-offset: 2px; }
+#play svg { width: 14px; height: 14px; fill: var(--bg); }
+#play .i-pause, #play.on .i-play { display: none; }
+#play.on .i-pause { display: block; }
+#yr { font-size: 24px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; width: 62px; flex-shrink: 0; }
+#tl { flex: 1; min-width: 0; cursor: pointer; touch-action: none; user-select: none; }
+#tl:focus-visible { outline: 2px solid rgba(var(--ink),.4); outline-offset: 4px; border-radius: 4px; }
+#bars { display: flex; align-items: flex-end; gap: 3px; height: 30px; }
+#bars i { flex: 1; min-height: 2px; border-radius: 2px 2px 1px 1px; background: rgba(var(--ink),.14); transition: background .2s, height .3s ease; }
+#bars i.past { background: rgba(var(--ink),.34); }
+#bars i.on { background: var(--text); }
+#ticks { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+/* svg bits */
+.edge { stroke: rgb(var(--ink)); stroke-opacity: var(--edge-op); fill: none; transition: stroke-opacity .15s; }
+.edge.hi { stroke-opacity: .55; }
+.edge.dim { stroke-opacity: .015; }
+.hit { stroke: transparent; stroke-width: 9px; fill: none; cursor: pointer; }
+.node { stroke: var(--bg); stroke-width: 1.2; vector-effect: non-scaling-stroke; transition: opacity .15s; cursor: pointer; }
+.node.gone, .hit.gone { pointer-events: none; }
+.no-anim, .no-anim * { transition: none !important; }
+.node.dim { opacity: .1; }
+.node.pin { stroke: var(--ring); stroke-width: 2.5; }
+.glabel { font: 600 calc(13px / var(--k, 1)) var(--font); fill: var(--muted); text-anchor: middle; pointer-events: none;
+  paint-order: stroke; stroke: var(--bg); stroke-width: calc(4px / var(--k, 1)); stroke-linejoin: round; }
+
+/* tooltip */
+#tip { position: fixed; z-index: 20; pointer-events: none; display: none; min-width: 190px; max-width: 320px; padding: 12px 14px;
+  background: var(--tip); border: 1px solid rgba(var(--ink),.12); border-radius: 12px;
+  box-shadow: 0 12px 32px var(--shadow); }
+#tip .n { font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+#tip .c { display: flex; align-items: center; gap: 7px; margin-top: 4px; font-size: 12px; color: var(--muted); }
+#tip .c i { width: 8px; height: 8px; border-radius: 50%; }
+#tip .d { font-size: 12px; color: var(--faint); margin-top: 2px; }
+#tip .cf { font-size: 12px; color: var(--gold); margin-top: 6px; }
+#tip .r { display: flex; justify-content: space-between; gap: 18px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--muted); }
+#tip .r + .r { margin-top: 6px; padding-top: 6px; }
+#tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+#tip .pair { display: flex; flex-direction: column; gap: 5px; }
+#tip .pair div { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; }
+#tip .pair i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+#tip .papers { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+#tip .papers h4 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 5px; }
+#tip .papers p { font-size: 12px; line-height: 1.4; color: var(--muted); padding: 3px 0; }
+
+@media (max-width: 760px) {
+  #hint, #legend { display: none; }
+  #stats { width: auto; min-width: 0; flex-wrap: wrap; gap: 2px 14px; }
+  header { padding: 14px 16px 4px; }
+  .brand span, nav a, nav .sep { display: none; }
+  #player { left: 16px; right: 16px; bottom: 16px; gap: 10px; }
+  #yr { font-size: 20px; width: 52px; }
+}
+</style>
+</head>
+<body>
+<div id="stage"><svg id="svg" role="img" aria-label="Faculty collaboration network, one year at a time"></svg></div>
+
+<header>
+  <div class="hl">
+    <div class="toprow">
+      <div class="brand"><img alt="NC State" src="data:image/png;base64,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"><span>Research Networks</span></div>
+      <nav aria-label="Breadcrumb"><a href="index.html">Network explorer</a><span class="sep">›</span><span class="here">Year by year</span></nav>
+    </div>
+    <div class="filters">
+      <div class="fwrap">
+        <button class="fbtn" id="fbtn" aria-haspopup="dialog" aria-expanded="false">
+          <svg viewBox="0 0 16 16"><path d="M2 4h12M4.5 8h7M7 12h2"/></svg>Filters<span class="badge" id="fcount"></span>
+        </button>
+        <div id="fpop" role="dialog" aria-label="Filters">
+          <h3>Show only</h3>
+          <button class="opt" id="opt-psi" role="switch" aria-checked="false">
+            <div><b>PSI collaborators</b><small>Faculty with Plant Sciences Initiative papers, and their PSI co-authorships. Data covers 2014 – 2025.</small></div><span class="sw"></span>
+          </button>
+          <button class="opt" id="opt-cfep" role="switch" aria-checked="false">
+            <div><b>CFEP members</b><small>Chancellor's Faculty Excellence Program: faculty in a CFEP cluster. They are drawn as diamonds.</small></div><span class="sw"></span>
+          </button>
+        </div>
+      </div>
+      <div id="chips"></div>
+    </div>
+    <div id="stats">
+      <div class="st"><b id="s-n">–</b><small>faculty</small></div>
+      <div class="st"><b id="s-e">–</b><small>collaborations</small></div>
+      <div class="st" title="Pairs who co-authored for the first time this year (first time since 2006, within the current filters)."><b id="s-f">–</b><small>first-time</small></div>
+      <div class="st" title="Collaborations between faculty in different colleges, and their share of this year's collaborations."><b id="s-x">–</b><small>cross-college</small></div>
+      <div class="st" title="Each faculty member's publications in this year added together. A paper with several NC State authors counts once per author."><b id="s-p">–</b><small id="s-pl">publications</small></div>
+    </div>
+  </div>
+</header>
+
+<aside id="legend"><h2>Colleges</h2><div id="lg"></div></aside>
+<div id="tr">
+  <button class="fbtn tbtn" id="tbtn" aria-label="Switch to light mode" title="Switch to light mode">
+    <svg class="i-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg>
+    <svg class="i-moon" viewBox="0 0 16 16"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/></svg>
+  </button>
+</div>
+<div id="player">
+  <button id="play" aria-label="Play">
+    <svg class="i-play" viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg>
+    <svg class="i-pause" viewBox="0 0 14 14"><path d="M2.5 1.5h3.2v11H2.5zM8.3 1.5h3.2v11H8.3z"/></svg>
+  </button>
+  <div id="yr">–</div>
+  <div id="tl" role="slider" tabindex="0" aria-label="Year" aria-valuemin="2006" aria-valuemax="2025">
+    <div id="bars"></div>
+    <div id="ticks"></div>
+  </div>
+  <div class="select"><select id="speed" aria-label="Playback speed"><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></div>
+</div>
+<div id="hint">Space plays and pauses · ← → step a year · bar heights are collaborations per year · scroll to zoom · drag to pan</div>
+<div id="empty" class="show"><div><b id="empty-t">Laying out network…</b><span id="empty-s"></span></div></div>
+<div id="tip"></div>
+
+<script>
+const D = __DATA__;
+// Same college colours as ui_template.html (one per college, a set tuned for each background).
+const DARK_COL  = ["#3987e5","#d95926","#199e70","#c98500","#d55181","#9085e9","#008300","#e66767","#1b98b0","#8f9a1c"];
+const LIGHT_COL = ["#3987e5","#d95926","#18956a","#c28000","#d55181","#8478e7","#359f3e","#e35555","#1a90a7","#b66ecf"];
+const isLight = () => document.documentElement.dataset.theme === "light";
+const COL = (isLight() ? LIGHT_COL : DARK_COL).slice();
+const paintVars = () => COL.forEach((c, i) => document.documentElement.style.setProperty("--col" + i, c));   // nodes read these, so a theme switch needs no per-node work
+paintVars();
+
+const YEARS = Object.keys(D.years).map(Number).sort((a, b) => a - b), FIRST = YEARS[0], LAST = YEARS[YEARS.length - 1];
+const state = { year: FIRST, psi: false, cfep: false, playing: false, speed: 1 };
+{ const q = new URLSearchParams(location.search);   // optional deep-link: ?year=2015&psi&cfep&speed=2&play
+  if (q.has("year") && D.years[q.get("year")]) state.year = +q.get("year");
+  if (q.has("psi")) state.psi = true; if (q.has("cfep")) state.cfep = true; if (q.has("speed")) state.speed = +q.get("speed") || 1; }
+
+// people: [id, name, college, dept, is_cfep, cfep cluster]; x / y / R are filled in by the layout
+const P = D.people.map((r, i) => ({ i, id: r[0], nm: r[1], c: r[2], d: r[3] || "Other", f: r[4] === 1, k: r[5], x: 0, y: 0 }));
+
+const svg = d3.select("#svg"), root = svg.append("g");
+const gE = root.append("g"), gH = root.append("g"), gN = root.append("g"), gL = root.append("g");
+let userZoomed = false;
+const zoom = d3.zoom().scaleExtent([0.1, 12]).on("zoom", e => { root.attr("transform", e.transform); gL.style("--k", e.transform.k); if (e.sourceEvent) userZoomed = true; });
+svg.call(zoom).on("dblclick.zoom", null);
+
+const SVGNS = "http://www.w3.org/2000/svg", diamondPath = "M0,-1.3L1.05,0L0,1.3L-1.05,0Z";
+const VW = 900, VH = 900;      // the layout is worked out once in this fixed space; the camera fits it to the window
+const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+const jit = (id, salt) => (hash(id + salt) % 10000) / 10000 - .5;   // deterministic "random": the same layout every time
+const pEsc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = n => n.toLocaleString();
+const pairKey = (a, b) => a < b ? a + "|" + b : b + "|" + a;
+
+// ---------- one scene per filter combination: every year's frame, plus the union used for the layout ----------
+const scenes = {};
+let sc = null, cur = null;    // current scene and current year's frame
+function frameFor(y) {
+  const src = state.psi ? (D.psi[y] || { n: [], e: [] }) : D.years[y];
+  const nodes = src.n.filter(r => !state.cfep || P[r[0]].f).map(r => ({ i: r[0], p: r[1] }));
+  const here = new Set(nodes.map(n => n.i)), adj = new Map();
+  const edges = src.e.filter(e => here.has(e[0]) && here.has(e[1])).map(e => {
+    [[e[0], e[1]], [e[1], e[0]]].forEach(([a, b]) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); });
+    return { k: pairKey(e[0], e[1]), a: e[0], b: e[1], w: e[2], t: e[3].map(t => D.titles[t]), xc: P[e[0]].c !== P[e[1]].c };
+  });
+  return { y, nodes, edges, adj };
+}
+function makeScene() {
+  const key = state.psi + "|" + state.cfep; if (scenes[key]) return scenes[key];
+  const frames = {}, maxP = new Map(), union = new Map(), since = new Map();
+  for (const y of YEARS) {
+    const F = frames[y] = frameFor(y);
+    F.nodes.forEach(n => maxP.set(n.i, Math.max(maxP.get(n.i) || 0, n.p)));
+    F.edges.forEach(e => { if (!since.has(e.k)) since.set(e.k, y);
+      const u = union.get(e.k); if (u) u.w += e.w; else union.set(e.k, { a: e.a, b: e.b, w: e.w, xc: e.xc }); });
+    F.fresh = F.edges.filter(e => since.get(e.k) === y).length;
+  }
+  const s = { key, frames, maxP, since, union: [...union.values()],
+    pMax: d3.max([...maxP.values()]) || 1, wMax: d3.max(YEARS, y => d3.max(frames[y].edges, e => e.w)) || 1 };
+  s.rS = d3.scaleSqrt().domain([1, Math.max(2, s.pMax)]).range([3.5, 20]);
+  s.wS = d3.scaleLinear().domain([1, Math.max(2, s.wMax)]).range([.8, 4]);
+  layout(s);
+  return scenes[key] = s;
+}
+
+// Same forces as the all-colleges view of the main page, run once over everyone who appears in any year
+// (and every tie from any year), so each person keeps one position for the whole animation.
+function layout(s) {
+  const ids = [...s.maxP.keys()], keys = [...new Set(ids.map(i => P[i].c))].sort((a, b) => String(a).localeCompare(String(b)));
+  const R = Math.min(VW, VH) * .44, anchor = new Map();
+  keys.forEach((k, j) => { const a = 2 * Math.PI * j / keys.length - Math.PI / 2; anchor.set(k, { x: VW / 2 + R * Math.cos(a), y: VH / 2 + R * Math.sin(a) }); });
+  const cp = ids.map(i => { const n = P[i], a = anchor.get(n.c); return { id: i, g: n.c, f: n.f, r: s.rS(Math.max(1, s.maxP.get(i))), x: a.x + jit(n.id, "x") * 60, y: a.y + jit(n.id, "y") * 60 }; });
+  const sim = d3.forceSimulation(cp)
+    .force("link", d3.forceLink(s.union.map(e => ({ source: e.a, target: e.b, xc: e.xc }))).id(d => d.id)
+      .distance(d => d.xc ? 62 : 18).strength(d => d.xc ? .03 : .28))
+    .force("charge", d3.forceManyBody().strength(-110))
+    .force("x", d3.forceX(d => anchor.get(d.g).x).strength(.9))
+    .force("y", d3.forceY(d => anchor.get(d.g).y).strength(.9))
+    .force("collide", d3.forceCollide(d => (d.f ? d.r * 1.3 : d.r) + 3))   // collide at each person's largest size, so no year overlaps
+    .alphaDecay(.03).stop();
+  for (let t = 0, n = cp.length > 800 ? 220 : 150; t < n; t++) sim.tick();
+  s.pos = new Map(cp.map(n => [n.id, { x: n.x, y: n.y, r: n.r }]));
+  s.groups = keys.map(k => ({ k, members: cp.filter(n => n.g === k) }));
+}
+
+function labelXY(members) {      // labels sit just outside each cluster, away from the centre (same rule as the main page)
+  let sx = 0, sy = 0; for (const n of members) { sx += n.x; sy += n.y; }
+  const cx = sx / members.length, cy = sy / members.length; let ext = 0;
+  for (const n of members) ext = Math.max(ext, Math.hypot(n.x - cx, n.y - cy) + n.r);
+  let dx = cx - VW / 2, dy = cy - VH / 2; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+  return [cx + dx * (ext + 16), cy + dy * (ext + 16) + 4];
+}
+function camera(W, H) {           // frames everyone in the scene (all years), so the camera never moves while playing
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  sc.pos.forEach(m => { x0 = Math.min(x0, m.x - m.r); x1 = Math.max(x1, m.x + m.r); y0 = Math.min(y0, m.y - m.r); y1 = Math.max(y1, m.y + m.r); });
+  const padL = W > 760 ? 290 : 24, padR = 24, padT = 56, padB = W > 760 ? 130 : 110, aw = W - padL - padR, ah = H - padT - padB;
+  let k = Math.min(aw / (x1 - x0), ah / (y1 - y0), 1.4);
+  sc.groups.forEach(g => { const [lx, ly] = labelXY(g.members), w = Math.min(D.colleges[g.k].length, 28) * 7.3;
+    x0 = Math.min(x0, lx - w / 2 / k); x1 = Math.max(x1, lx + w / 2 / k); y0 = Math.min(y0, ly - 14 / k); y1 = Math.max(y1, ly + 4 / k); });
+  k = Math.min(aw / (x1 - x0), ah / (y1 - y0), 1.4);
+  return d3.zoomIdentity.translate(padL + (aw - k * (x1 - x0)) / 2 - k * x0, padT + (ah - k * (y1 - y0)) / 2 - k * y0).scale(k);
+}
+function fit() { if (sc && !userZoomed) svg.call(zoom.transform, camera(innerWidth, innerHeight)); }
+
+// ---------- drawing a year ----------
+const tf = (i, r) => { const m = sc.pos.get(i); return "translate(" + m.x + "," + m.y + ") scale(" + r + ")"; };
+const interval = () => 1400 / state.speed;
+let hover = null, lastEv = null, spotC = null;   // hovered node / edge, last mouse event, college spotlighted from the legend
+
+function draw(animate) {
+  const F = cur = sc.frames[state.year], dur = animate ? Math.min(900, interval() * .6) : 0;
+  const tr = s => dur ? s.transition().duration(dur).ease(d3.easeCubicOut) : s;
+  gN.selectAll(".node:not(.gone)").data(F.nodes, d => d.i).join(
+    enter => enter.append(d => document.createElementNS(SVGNS, P[d.i].f ? "path" : "circle"))   // CFEP members are diamonds
+      .attr("class", "node")
+      .each(function (d) { if (P[d.i].f) this.setAttribute("d", diamondPath); else this.setAttribute("r", 1); this.style.fill = "var(--col" + P[d.i].c + ")"; })
+      .attr("transform", d => tf(d.i, dur ? 1e-6 : sc.rS(d.p)))      // new people grow in from nothing
+      .on("mouseover", (ev, d) => { hover = { t: "n", k: d.i }; lastEv = ev; showTip(); highlight(); })
+      .on("mousemove", ev => { lastEv = ev; moveTip(ev); })
+      .on("mouseout", () => { hover = null; hideTip(); highlight(); })
+      .call(s => { if (dur) s.transition().duration(dur).ease(d3.easeBackOut.overshoot(1.2)).attr("transform", d => tf(d.i, sc.rS(d.p))); }),
+    update => update.call(s => tr(s).attr("transform", d => tf(d.i, sc.rS(d.p)))),   // people who stay resize to this year's publications
+    exit => exit.classed("gone", true).call(s => dur ? s.transition().duration(dur * .6).attr("transform", d => tf(d.i, 1e-6)).remove() : s.remove())
+  );
+  gE.selectAll(".edge:not(.gone)").data(F.edges, d => d.k).join(
+    enter => enter.append("line").attr("class", "edge").each(function (d) { const a = sc.pos.get(d.a), b = sc.pos.get(d.b);
+        this.setAttribute("x1", a.x); this.setAttribute("y1", a.y); this.setAttribute("x2", b.x); this.setAttribute("y2", b.y); })
+      .attr("stroke-width", d => sc.wS(d.w))
+      .call(s => { if (dur) s.style("opacity", 0).transition().delay(dur * .25).duration(dur * .75).style("opacity", 1); }),
+    update => update.call(s => tr(s).attr("stroke-width", d => sc.wS(d.w)).style("opacity", 1)),
+    exit => exit.classed("gone", true).call(s => dur ? s.transition().duration(dur * .5).style("opacity", 0).remove() : s.remove())
+  );
+  gH.selectAll(".hit").data(F.edges, d => d.k).join(          // wide invisible lines that make thin edges easy to hover
+    enter => enter.append("line").attr("class", "hit").each(function (d) { const a = sc.pos.get(d.a), b = sc.pos.get(d.b);
+        this.setAttribute("x1", a.x); this.setAttribute("y1", a.y); this.setAttribute("x2", b.x); this.setAttribute("y2", b.y); })
+      .on("mouseover", (ev, d) => { hover = { t: "e", k: d.k }; lastEv = ev; showTip(); highlight(); })
+      .on("mousemove", ev => { lastEv = ev; moveTip(ev); })
+      .on("mouseout", () => { hover = null; hideTip(); highlight(); }),
+    update => update, exit => exit.remove()
+  );
+  // whatever is hovered may have just left (or changed): drop it, or refresh its tooltip with this year's numbers
+  if (hover && !(hover.t === "n" ? F.adj.has(hover.k) || F.nodes.some(n => n.i === hover.k) : F.edges.some(e => e.k === hover.k))) { hover = null; hideTip(); }
+  else if (hover) showTip();
+  highlight(); refreshUI();
+  const empty = !F.nodes.length, on = [state.psi && "PSI", state.cfep && "CFEP"].filter(Boolean);
+  document.getElementById("empty").classList.toggle("show", empty);
+  if (empty) {
+    document.getElementById("empty-t").textContent = on.length ? "No " + on.join(" + ") + " faculty in " + state.year : "No faculty in " + state.year;
+    document.getElementById("empty-s").textContent = state.psi && !D.psi[state.year] ? "PSI data begins in 2014." : "";
+  }
+}
+
+function highlight() {
+  const F = cur; if (!F) return;
+  const ns = gN.selectAll(".node:not(.gone)"), es = gE.selectAll(".edge:not(.gone)");
+  if (hover && hover.t === "n") {                    // a person: their ties this year, everyone else dimmed
+    const k = hover.k, nb = new Set([k, ...(F.adj.get(k) || [])]);
+    ns.classed("dim", d => !nb.has(d.i)).classed("pin", d => d.i === k);
+    es.classed("hi", d => d.a === k || d.b === k).classed("dim", d => d.a !== k && d.b !== k);
+    return;
+  }
+  ns.classed("pin", false);
+  if (spotC !== null) { ns.classed("dim", d => P[d.i].c !== spotC); es.classed("dim", d => P[d.a].c !== spotC || P[d.b].c !== spotC); }
+  else { ns.classed("dim", false); es.classed("dim", false); }
+  es.classed("hi", d => hover !== null && hover.t === "e" && d.k === hover.k);
+}
+
+// ---------- tooltip ----------
+const tip = document.getElementById("tip");
+function showTip() {
+  const F = cur, metric = state.psi ? "PSI papers" : "Publications";
+  if (hover.t === "n") {
+    const n = P[hover.k], fn = F.nodes.find(x => x.i === hover.k);
+    tip.innerHTML = `<div class="n">${pEsc(n.nm)}</div><div class="c"><i style="background:${COL[n.c]}"></i>${pEsc(D.colleges[n.c])}</div>` +
+      `<div class="d">${pEsc(n.d)}</div>` + (n.f ? `<div class="cf">◆ CFEP · ${pEsc(D.cfep[n.k] || "")}</div>` : "") +
+      `<div class="r"><span>${metric} in ${F.y}</span><b>${fn ? fn.p : 0}</b></div><div class="r"><span>Collaborators in ${F.y}</span><b>${F.adj.get(hover.k)?.size || 0}</b></div>`;
+  } else {
+    const e = F.edges.find(x => x.k === hover.k), row = n => `<div><i style="background:${COL[n.c]}"></i>${pEsc(n.nm)}</div>`, since = sc.since.get(e.k);
+    const papers = e.t.map(t => `<p>${pEsc(t)}${t.length >= 70 ? "…" : ""}</p>`).join("");
+    tip.innerHTML = `<div class="pair">${row(P[e.a])}${row(P[e.b])}</div>` +
+      `<div class="r"><span>Shared papers in ${F.y}</span><b>${e.w}</b></div>` +
+      `<div class="r"><span>Co-authors since</span><b>${since === F.y ? since + " (new)" : since}</b></div>` +
+      (papers ? `<div class="papers"><h4>Papers</h4>${papers}</div>` : "");
+  }
+  tip.style.display = "block"; if (lastEv) moveTip(lastEv);
+}
+function moveTip(ev) {
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(innerWidth - w - 12, ev.clientX + 16) + "px";
+  tip.style.top = Math.min(innerHeight - h - 12, ev.clientY + 16) + "px";
+}
+const hideTip = () => tip.style.display = "none";
+
+// ---------- header, legend, timeline ----------
+function refreshUI() { statsRender(); legend(); timeline(); filtersUI(); }
+function statsRender() {
+  const F = cur, cross = F.edges.filter(e => e.xc).length, set = (id, v) => document.getElementById(id).innerHTML = v;
+  set("s-n", fmt(F.nodes.length));
+  set("s-e", fmt(F.edges.length));
+  set("s-f", F.y === FIRST ? "–" : fmt(F.fresh));   // the data starts in the first year, so every pair would count as new
+  set("s-x", fmt(cross) + (F.edges.length ? `<em>${Math.round(cross / F.edges.length * 100)}%</em>` : ""));
+  set("s-p", fmt(F.nodes.reduce((s, n) => s + n.p, 0)));
+  set("s-pl", state.psi ? "PSI papers" : "publications");
+}
+let lgOrder = null;
+function legend() {
+  const lg = document.getElementById("lg"), counts = {};
+  cur.nodes.forEach(n => counts[P[n.i].c] = (counts[P[n.i].c] || 0) + 1);
+  if (!lgOrder || lgOrder.key !== sc.key) {        // fixed order (by people over all years) so rows don't jump while playing
+    const tot = {}; sc.maxP.forEach((_, i) => tot[P[i].c] = (tot[P[i].c] || 0) + 1);
+    lgOrder = { key: sc.key, order: D.colleges.map((_, i) => i).filter(i => tot[i]).sort((a, b) => tot[b] - tot[a]) };
+    lg.innerHTML = "";
+    lgOrder.order.forEach(i => {
+      const b = document.createElement("button");
+      b.className = "lg"; b.dataset.c = i;
+      b.innerHTML = `<i></i><span>${pEsc(D.colleges[i])}</span><b></b>`;
+      b.onmouseenter = () => { spotC = i; highlight(); };
+      b.onmouseleave = () => { spotC = null; highlight(); };
+      lg.appendChild(b);
+    });
+  }
+  [...lg.children].forEach(b => { const i = +b.dataset.c; b.querySelector("i").style.background = COL[i]; b.querySelector("b").textContent = fmt(counts[i] || 0); });
+}
+const bars = document.getElementById("bars"), tl = document.getElementById("tl");
+YEARS.forEach(y => bars.appendChild(document.createElement("i")));
+document.getElementById("ticks").innerHTML = YEARS.filter(y => y === FIRST || y === LAST || y % 5 === 0).map(y => `<span>${y}</span>`).join("");
+function timeline() {
+  const mx = Math.max(1, ...YEARS.map(y => sc.frames[y].edges.length));
+  YEARS.forEach((y, j) => { const b = bars.children[j], n = sc.frames[y].edges.length;
+    b.style.height = (n ? Math.max(8, n / mx * 100) : 6) + "%"; b.className = y === state.year ? "on" : y < state.year ? "past" : "";
+    b.title = `${y} · ${fmt(n)} collaborations`; });
+  document.getElementById("yr").textContent = state.year;
+  tl.setAttribute("aria-valuenow", state.year);
+}
+function filtersUI() {
+  const active = [state.psi, state.cfep].filter(Boolean).length, badge = document.getElementById("fcount");
+  badge.textContent = active; badge.classList.toggle("show", active > 0);
+  optPsi.classList.toggle("on", state.psi); optPsi.setAttribute("aria-checked", state.psi);
+  optCfep.classList.toggle("on", state.cfep); optCfep.setAttribute("aria-checked", state.cfep);
+  const chips = document.getElementById("chips"); chips.innerHTML = "";
+  [["psi", "PSI only"], ["cfep", "CFEP only"]].forEach(([k, label]) => {
+    if (!state[k]) return;
+    const c = document.createElement("button"); c.className = "chip"; c.innerHTML = label + " <span>✕</span>"; c.title = "Remove filter";
+    c.onclick = () => { state[k] = false; rebuild(); }; chips.appendChild(c);
+  });
+}
+
+// ---------- playback ----------
+const playBtn = document.getElementById("play");
+let timer = null;
+function setPlaying(on) {
+  state.playing = on; clearTimeout(timer);
+  playBtn.classList.toggle("on", on); playBtn.setAttribute("aria-label", on ? "Pause" : "Play");
+  if (!on) return;
+  if (state.year >= LAST) { state.year = FIRST; draw(true); }   // play from the end starts over
+  const step = () => {
+    timer = setTimeout(() => {
+      state.year++; draw(true);
+      if (state.year >= LAST) setPlaying(false); else step();
+    }, interval());
+  };
+  step();
+}
+function goYear(y, animate = true) {
+  y = Math.max(FIRST, Math.min(LAST, y)); if (y === state.year) return;
+  setPlaying(false); state.year = y; draw(animate);
+}
+playBtn.onclick = () => setPlaying(!state.playing);
+const speedSel = document.getElementById("speed");
+speedSel.value = String(state.speed); if (!speedSel.value) { speedSel.value = "1"; state.speed = 1; }
+speedSel.onchange = () => { state.speed = +speedSel.value; if (state.playing) setPlaying(true); };
+// click or drag along the bars to scrub
+const yearAt = ev => { const r = bars.getBoundingClientRect(); return YEARS[Math.max(0, Math.min(YEARS.length - 1, Math.floor((ev.clientX - r.left) / r.width * YEARS.length)))]; };
+tl.addEventListener("pointerdown", ev => { tl.setPointerCapture(ev.pointerId); goYear(yearAt(ev)); });
+tl.addEventListener("pointermove", ev => { if (tl.hasPointerCapture(ev.pointerId)) goYear(yearAt(ev)); });
+addEventListener("keydown", ev => {
+  if (ev.key === "Escape") { setPop(false); return; }
+  if (ev.target.closest("select")) return;
+  if (ev.key === " " && !ev.target.closest("button")) { ev.preventDefault(); setPlaying(!state.playing); }
+  else if (ev.key === "ArrowRight") { ev.preventDefault(); goYear(state.year + 1); }
+  else if (ev.key === "ArrowLeft") { ev.preventDefault(); goYear(state.year - 1); }
+  else if (ev.key === "Home") goYear(FIRST);
+  else if (ev.key === "End") goYear(LAST);
+});
+
+// ---------- filters ----------
+const fbtn = document.getElementById("fbtn"), fpop = document.getElementById("fpop"), optPsi = document.getElementById("opt-psi"), optCfep = document.getElementById("opt-cfep");
+function setPop(open) { fpop.classList.toggle("show", open); fbtn.classList.toggle("open", open); fbtn.setAttribute("aria-expanded", open); }
+fbtn.onclick = e => { e.stopPropagation(); setPop(!fpop.classList.contains("show")); };
+fpop.onclick = e => e.stopPropagation();
+document.addEventListener("click", () => setPop(false));
+optPsi.onclick = () => { state.psi = !state.psi; rebuild(); };
+optCfep.onclick = () => { state.cfep = !state.cfep; rebuild(); };
+
+// ---------- light / dark ----------
+const tbtn = document.getElementById("tbtn");
+function setTheme(t) {
+  const html = document.documentElement;
+  html.classList.add("no-anim"); html.dataset.theme = t;
+  try { localStorage.setItem("theme", t); } catch (e) {}
+  const next = t === "light" ? "Switch to dark mode" : "Switch to light mode";
+  tbtn.setAttribute("aria-label", next); tbtn.title = next;
+  COL.splice(0, COL.length, ...(t === "light" ? LIGHT_COL : DARK_COL));
+  paintVars(); if (cur) legend();
+  requestAnimationFrame(() => requestAnimationFrame(() => html.classList.remove("no-anim")));
+}
+tbtn.onclick = () => setTheme(isLight() ? "dark" : "light");
+tbtn.setAttribute("aria-label", isLight() ? "Switch to dark mode" : "Switch to light mode"); tbtn.title = tbtn.getAttribute("aria-label");
+
+// ---------- entry points ----------
+function labels() {
+  gL.selectAll("*").remove();
+  sc.groups.forEach(g => { const [x, y] = labelXY(g.members), name = D.colleges[g.k];
+    gL.append("text").attr("class", "glabel").attr("x", x).attr("y", y).text(name.length > 28 ? name.slice(0, 27) + "…" : name).append("title").text(name); });
+}
+let first = true;
+function rebuild() {                 // first load or a filter change: lay out (cached per filter set) and fade the new picture in
+  hover = null; hideTip();
+  root.style("transition", first ? "none" : "opacity .15s ease").style("opacity", 0);
+  setTimeout(() => {
+    sc = makeScene(); first = false;
+    [gE, gH, gN].forEach(g => g.selectAll("*").remove()); labels();
+    userZoomed = false; fit(); draw(false);
+    requestAnimationFrame(() => requestAnimationFrame(() => root.style("transition", "opacity .45s ease").style("opacity", 1)));
+  }, first ? 30 : 160);
+}
+addEventListener("resize", fit);
+requestAnimationFrame(() => setTimeout(() => {
+  rebuild();
+  if (new URLSearchParams(location.search).has("play")) setTimeout(() => setPlaying(true), 400);
+}, 0));
+</script>
+</body>
+</html>

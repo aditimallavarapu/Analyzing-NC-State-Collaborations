@@ -13,6 +13,12 @@ python 04_build_ui.py
 # produces: index.html (GitHub Pages serves it as the site's front page)
 # Edit ui_template.html, never index.html.
 
+# Step 3b — build the year-by-year animation (same inputs as step 3, but keeps each year separate)
+python 05_build_animation.py
+# reads:    network_data/, psi_net.json, the CFEP CSV, animation_template.html
+# produces: animation.html
+# Edit animation_template.html, never animation.html.
+
 # Step 4 — open
 # The page has its data built in, so you can open index.html directly in a browser.
 
