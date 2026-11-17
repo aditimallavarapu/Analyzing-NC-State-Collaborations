@@ -351,7 +351,8 @@ function labels(dur) {            // one label per college with anyone so far; t
 const CUR = new Map();          // person index -> [x, y] right now
 const interval = () => 1400 / state.speed;
 // ties inside a college are straight; ties between colleges bend towards the middle, so they bundle into flows instead of a tangle
-const edgePath = (a, b, xc) => { if (!xc) return "M" + a[0] + "," + a[1] + "L" + b[0] + "," + b[1];
+const STRAIGHT = new URLSearchParams(location.search).has("straight");   // temporary: ?straight draws every tie as a straight line, to compare
+const edgePath = (a, b, xc) => { if (!xc || STRAIGHT) return "M" + a[0] + "," + a[1] + "L" + b[0] + "," + b[1];
   const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
   return "M" + a[0] + "," + a[1] + "Q" + (mx + (VW / 2 - mx) * .6) + "," + (my + (VH / 2 - my) * .6) + " " + b[0] + "," + b[1]; };
 const setLine = (el, d) => el.setAttribute("d", edgePath(CUR.get(d.a), CUR.get(d.b), d.xc));

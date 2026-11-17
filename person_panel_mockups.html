@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script>document.documentElement.dataset.theme = "light";</script>
+<title>Person Panel · Mockups</title>
+<style>
+:root {
+  --bg: #121211; --ink: 255,255,255; --surface: #1c1c1a; --raised: rgba(255,255,255,.05);
+  --line: rgba(var(--ink),.09); --text: #f0efec; --muted: #a3a29a; --faint: #6f6e68;
+  --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --c0:#3987e5; --c1:#d95926; --c2:#199e70; --c3:#c98500; --c4:#d55181; --c5:#9085e9; --c6:#008300; --c7:#e66767; --c8:#1b98b0; --c9:#8f9a1c;
+}
+:root[data-theme="light"] {
+  --bg: #f6f5f1; --ink: 20,20,18; --surface: #ffffff; --raised: rgba(20,20,18,.04);
+  --text: #1b1b19; --muted: #5d5c56; --faint: #8a8981;
+  --c2:#18956a; --c3:#c28000; --c5:#8478e7; --c6:#359f3e; --c7:#e35555; --c8:#1a90a7; --c9:#b66ecf;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); padding: 0 24px 40px; }
+.num { font-variant-numeric: tabular-nums; }
+.top { display: flex; align-items: center; gap: 12px; padding: 18px 0; }
+.top h1 { font-size: 15px; font-weight: 650; }
+.top p { font-size: 13px; color: var(--muted); flex: 1; }
+.top button { font: 600 13px var(--font); padding: 7px 12px; border-radius: 9px; border: 1px solid var(--line); background: none; color: inherit; cursor: pointer; }
+.row { display: flex; gap: 22px; overflow-x: auto; padding-bottom: 10px; }
+.col { flex: 0 0 370px; }
+.col > h2 { font-size: 13px; font-weight: 650; margin-bottom: 4px; }
+.col > p { font-size: 12.5px; line-height: 1.5; color: var(--muted); margin-bottom: 12px; min-height: 56px; }
+
+/* the panel itself (same size and surface as the explorer's Insights panel) */
+.panel { height: 860px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+.head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.head h3 { font-size: 18px; font-weight: 650; letter-spacing: -.015em; }
+.head .sub { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.head .sub i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.body { flex: 1; overflow: hidden; padding: 4px 20px 20px; position: relative; }
+.body::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 60px; background: linear-gradient(transparent, var(--surface)); pointer-events: none; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.cap { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.mix { display: flex; height: 8px; gap: 2px; border-radius: 4px; overflow: hidden; }
+.mix i { display: block; }
+.mixlg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.mixlg span { display: inline-flex; align-items: center; gap: 6px; }
+.mixlg b { color: var(--text); font-weight: 600; }
+
+/* A: quiet list */
+.A .stats { display: flex; padding: 16px 0 18px; border-bottom: 1px solid var(--line); }
+.A .stats div { flex: 1; }
+.A .stats div + div { padding-left: 16px; border-left: 1px solid var(--line); }
+.A .stats b { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.A .stats small { font-size: 12px; color: var(--muted); }
+.A .sect { display: flex; justify-content: space-between; align-items: baseline; margin: 20px 0 8px; }
+.A .li { display: flex; align-items: center; gap: 10px; padding: 9px 8px; margin: 0 -8px; border-radius: 8px; }
+.A .li:hover, .A .li.hov { background: var(--raised); }
+.A .li .tx { flex: 1; min-width: 0; }
+.A .li b { display: block; font-size: 13.5px; font-weight: 600; }
+.A .li small { display: block; font-size: 12px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.A .li .v { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.A .li .v i { display: block; height: 4px; border-radius: 2px; background: rgba(var(--ink),.18); }
+
+/* variations on A (share A's row and stat styles via the "A" class) */
+.A .sect { display: flex; justify-content: space-between; align-items: baseline; margin: 20px 0 8px; }
+/* A2: stats folded into the header */
+.A2 .head .meta { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.A2 .head .meta b { color: var(--text); font-weight: 650; }
+.A2 .head .mix { margin-top: 12px; }
+/* A3: split into own college / other colleges */
+.A3 .sect span:first-child { display: flex; align-items: center; gap: 8px; }
+/* A4: expandable rows with the shared papers */
+.A4 .li.open { background: var(--raised); flex-wrap: wrap; }
+.A4 .li .chev { width: 10px; height: 10px; stroke: var(--faint); fill: none; stroke-width: 1.6; flex-shrink: 0; }
+.A4 .li.open .chev { transform: rotate(90deg); }
+.A4 .papers { flex-basis: 100%; padding: 8px 0 2px 18px; }
+.A4 .papers p { font-size: 12px; line-height: 1.4; color: var(--muted); padding: 4px 0 4px 10px; border-left: 2px solid var(--line); }
+.A4 .more { display: block; width: 100%; margin-top: 10px; padding: 9px; border-radius: 8px; border: 1px solid var(--line); background: none; font: 600 12.5px var(--font); color: var(--muted); }
+/* A5: the bar is the count, with a sort switch */
+.A5 .seg { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--raised); }
+.A5 .seg span { font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 4px 8px; border-radius: 6px; }
+.A5 .seg span.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.A5 .li { padding: 7px 8px; }
+.A5 .li .tx b { font-size: 13px; }
+.A5 .meter { flex: 0 0 92px; display: flex; align-items: center; gap: 6px; justify-content: flex-end; font-size: 12px; font-weight: 600; color: var(--muted); }
+.A5 .meter i { display: block; height: 14px; border-radius: 3px; background: rgba(var(--ink),.12); }
+.A5 .meter i.top { background: rgba(var(--ink),.3); }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Person panel · mockups</h1>
+  <p>Real data: Michael Dickey, 2021 – 2025. A is the version you liked; A2 – A5 each change one thing.</p>
+  <button id="theme">Light / dark</button>
+</div>
+<div class="row" id="row"></div>
+
+<script>
+const COLLEGES = ["Engineering","Sciences","Agriculture & Life Sci.","Humanities & Social Sci.","Veterinary Medicine","Education","Management (Poole)","Natural Resources","Textiles","Design"];
+const ME = { nm: "Michael Dickey", c: 0, d: "Chemical and Biomolecular Engineering", p: 134 };
+// [name, college, department, shared papers] for 2021 – 2025, from the explorer's data
+const CO = [["Jan Genzer",0,"Chemical and Biomolecular Engineering",8],["Orlin Velev",0,"Chemical and Biomolecular Engineering",8],["Mehmet Ozturk",0,"Electrical and Computer Engineering",3],["Karen Daniels",1,"Physics",3],["Alper Bozkurt",0,"Electrical and Computer Engineering",3],["Qingshan Wei",0,"Chemical and Biomolecular Engineering",3],["Lilian Hsiao",0,"Chemical and Biomolecular Engineering",2],["Christopher Gorman",1,"Chemistry",2],["Yong Zhu",0,"Mechanical and Aerospace Engineering",2],["Richard Spontak",0,"Chemical and Biomolecular Engineering",2],["Elisa Crisci",4,"Population Health and Pathobiology",1],["Frank Scholle",1,"Biological Sciences",1],["Nathan Crook",0,"Chemical and Biomolecular Engineering",1],["Tushar Ghosh",8,"Textile Engineering, Chemistry and Science",1],["Kirill Efimenko",0,"Chemical and Biomolecular Engineering",1],["Daryoosh Vashaee",0,"Electrical and Computer Engineering",1],["Hans Hallen",1,"Physics",1],["Amay Bandodkar",0,"Electrical and Computer Engineering",1],["Erik Santiso",0,"Chemical and Biomolecular Engineering",1],["Brendan O'Connor",0,"Mechanical and Aerospace Engineering",1],["Saad Khan",0,"Chemical and Biomolecular Engineering",1],["Stefano Menegatti",0,"Chemical and Biomolecular Engineering",1],["Alexej Smirnov",1,"Chemistry",1],["Maxim Voynov",1,"Chemistry",1]];
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const dot = c => `<i class="dot" style="background:var(--c${c})"></i>`;
+const byCol = {}; CO.forEach(r => (byCol[r[1]] = byCol[r[1]] || []).push(r));
+const order = Object.keys(byCol).map(Number).sort((a, b) => (a === ME.c ? -1 : b === ME.c ? 1 : byCol[b].length - byCol[a].length));
+const papers = CO.reduce((s, r) => s + r[3], 0), crossP = CO.filter(r => r[1] !== ME.c).reduce((s, r) => s + r[3], 0), same = byCol[ME.c].length, MAXW = CO[0][3];
+const head = extra => `<div class="head"><h3>${ME.nm}</h3><div class="sub">${dot(ME.c)}${COLLEGES[ME.c]} · ${ME.d}</div>${extra || ""}</div>`;
+const mix = `<div class="mix">${order.map(c => `<i style="flex:${byCol[c].length};background:var(--c${c})"></i>`).join("")}</div>
+  <div class="mixlg">${order.map(c => `<span>${dot(c)}${COLLEGES[c]}<b>${byCol[c].length}</b></span>`).join("")}</div>`;
+
+// titles of a few shared papers (already cut to 70 characters by the pipeline), for the expandable rows in A4
+const TITLES = { "Jan Genzer": ["Counterpropagating Gradients of Antibacterial and Antifouling Polymer", "Antipathogenic properties and applications of low-dimensional material"],
+  "Orlin Velev": ["Wearable Osmotic-Capillary Patch for Prolonged Sweat Harvesting and Se", "Osmotically Enabled Wearable Patch for Sweat Harvesting and Lactate Qu"] };
+const aRow = (r, extra = "") => `<div class="li ${extra}">${dot(r[1])}<div class="tx"><b>${esc(r[0])}</b><small>${esc(r[2])}${r[1] !== ME.c ? " · " + COLLEGES[r[1]] : ""}</small></div><span class="v num"><i style="width:${r[3] / MAXW * 44}px"></i>${r[3]}</span></div>`;
+const aStats = `<div class="stats"><div><b class="num">134</b><small>publications</small></div><div><b class="num">24</b><small>collaborators</small></div><div><b class="num">4</b><small>colleges reached</small></div></div>`;
+const V = [
+  { k: "A", t: "A · Quiet list (the one you liked)",
+    d: "Plain numbers split by hairlines, a college-mix bar, and rows with a small college dot and a thin bar for shared papers.",
+    h: () => head() + `<div class="body">${aStats}
+      <div class="sect"><span class="cap">Collaborators by college</span></div>${mix}
+      <div class="sect"><span class="cap">Collaborators</span><span class="cap">Shared papers</span></div>
+      ${CO.map((r, i) => aRow(r, i === 1 ? "hov" : "")).join("")}</div>` },
+  { k: "A A2", t: "A2 · Compact header",
+    d: "The numbers become one quiet line under the name and the college-mix bar moves into the header. Same list, but it starts much higher, so about three more people fit before scrolling.",
+    h: () => head(`<div class="meta"><b class="num">134</b> publications · <b class="num">24</b> collaborators · <b class="num">4</b> colleges</div>${mix}`) + `<div class="body">
+      <div class="sect"><span class="cap">Collaborators</span><span class="cap">Shared papers</span></div>
+      ${CO.map(r => aRow(r)).join("")}</div>` },
+  { k: "A A3", t: "A3 · Own college vs other colleges",
+    d: "A's list split in two: collaborators inside his own college, then everyone in other colleges. The cross-college ties (the project's focus) get their own section instead of being mixed in.",
+    h: () => head() + `<div class="body">${aStats}
+      <div class="sect"><span class="cap">${dot(ME.c)} In ${COLLEGES[ME.c]} · ${same}</span><span class="cap">Shared papers</span></div>
+      ${CO.filter(r => r[1] === ME.c).map(r => aRow(r)).join("")}
+      <div class="sect"><span class="cap">In other colleges · ${24 - same}</span></div>
+      ${CO.filter(r => r[1] !== ME.c).map(r => aRow(r)).join("")}</div>` },
+  { k: "A A4", t: "A4 · Expandable rows",
+    d: "A, but clicking a collaborator opens their shared papers right in the list (the first row is shown open). Only the top 10 are listed, with a button to show the other 14.",
+    h: () => head() + `<div class="body">${aStats}
+      <div class="sect"><span class="cap">Collaborators</span><span class="cap">Shared papers</span></div>
+      ${CO.slice(0, 10).map((r, i) => `<div class="li ${i === 0 ? "open" : ""}"><svg class="chev" viewBox="0 0 10 10"><path d="M3.5 2l3 3-3 3"/></svg>${dot(r[1])}<div class="tx"><b>${esc(r[0])}</b><small>${esc(r[2])}${r[1] !== ME.c ? " · " + COLLEGES[r[1]] : ""}</small></div><span class="v num">${r[3]}</span>
+        ${i === 0 ? `<div class="papers">${TITLES[r[0]].map(t => `<p>${esc(t)}…</p>`).join("")}<p style="border:0;color:var(--faint)">+ ${r[3] - 2} more</p></div>` : ""}</div>`).join("")}
+      <button class="more">Show all 24 collaborators</button></div>` },
+  { k: "A A5", t: "A5 · Bars do the counting",
+    d: "The shared-paper bar becomes the main visual: bigger, right-aligned, with the number beside it, so the strongest ties jump out. A small switch above the list sorts by papers, name or college.",
+    h: () => head() + `<div class="body">${aStats}
+      <div class="sect"><span class="cap">Collaborators</span><span class="seg"><span class="on">Papers</span><span>Name</span><span>College</span></span></div>
+      ${CO.map(r => `<div class="li">${dot(r[1])}<div class="tx"><b>${esc(r[0])}</b><small>${esc(r[2])}${r[1] !== ME.c ? " · " + COLLEGES[r[1]] : ""}</small></div><span class="meter num"><i class="${r[3] === MAXW ? "top" : ""}" style="width:${Math.max(4, r[3] / MAXW * 64)}px"></i>${r[3]}</span></div>`).join("")}</div>` },
+];
+document.getElementById("row").innerHTML = V.map(v => `<div class="col"><h2>${v.t}</h2><p>${v.d}</p><div class="panel ${v.k}">${v.h()}</div></div>`).join("");
+document.getElementById("theme").onclick = () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === "light" ? "dark" : "light"; };
+</script>
+</body>
+</html>

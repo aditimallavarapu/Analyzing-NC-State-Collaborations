@@ -104,44 +104,32 @@ nav .here { color: var(--text); font-weight: 600; padding: 4px 8px; white-space:
 #pb::-webkit-scrollbar-thumb { background: rgba(var(--ink),.16); border-radius: 4px; }
 #pb::-webkit-scrollbar-thumb:hover { background: rgba(var(--ink),.28); }
 #pb::-webkit-scrollbar-track { background: transparent; }
-#pb h3 { font-size: 13px; font-weight: 600; color: var(--text); padding: 14px 8px 6px; display: flex; justify-content: space-between; align-items: baseline; }
-#pb h3 small { font-size: 11px; font-weight: 500; color: var(--faint); }
-.li { position: relative; display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 8px; cursor: default; overflow: hidden; }
+.li { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: default; }
 .li[data-go] { cursor: pointer; }
-.li::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--w, 0); background: var(--c, #fff); opacity: .13; border-radius: 8px; }
 .li:hover { background: rgba(var(--ink),.06); }
-.li.p { margin-bottom: 3px; padding: 8px 10px; }
-.li.p::before { width: 100%; opacity: .22; transition: opacity .12s; }
-.li.p:hover { background: none; }
-.li.p:hover::before { opacity: .36; }
-.li > * { position: relative; }
-.li .rk { width: 16px; font-size: 11.5px; color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .li i.d { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .li .pair { display: flex; align-items: center; gap: 4px; width: 24px; flex-shrink: 0; margin-top: 3.5px; }
 .li .pair i { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .li .tx { flex: 1; min-width: 0; }
-.li.pr::before { display: none; }
 .li.pr { align-items: flex-start; }
 .li.pr .v { line-height: 17px; }
 .li.pr .tx b { white-space: normal; line-height: 1.3; }
 .li .tx b { display: block; font-size: 13px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .li .tx small { display: block; font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .li .v { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
-.dept { padding: 8px 8px 9px; border-radius: 8px; }
-.dept:hover { background: rgba(var(--ink),.06); }
-.dept .top { display: flex; align-items: center; gap: 9px; }
-.dept .top i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.dept .top b { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dept .top span { font-size: 11.5px; color: var(--faint); }
-.stk { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: rgba(var(--ink),.06); margin: 7px 0 4px 18px; gap: 2px; }
-.stk i { display: block; height: 100%; }
-.dept small { display: block; margin-left: 18px; font-size: 11px; color: var(--faint); }
-.key { display: flex; gap: 14px; padding: 0 8px 4px; font-size: 11px; color: var(--faint); }
-.key span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--k); vertical-align: -1px; }
-.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 8px 4px; }
-.grid3 div { background: rgba(var(--ink),.05); border-radius: 10px; padding: 10px 10px 9px; }
-.grid3 b { display: block; font-size: 19px; font-weight: 650; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.grid3 small { font-size: 11px; color: var(--muted); }
+/* person view: plain numbers split by hairlines and a collaborators-by-college bar; section captions are shared by every view */
+.pstats { display: flex; margin: 14px 8px 0; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.pstats div { flex: 1; }
+.pstats div + div { padding-left: 14px; border-left: 1px solid var(--line); }
+.pstats b { display: block; font-size: 21px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pstats small { font-size: 11.5px; color: var(--muted); }
+.pcap { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 18px 8px 8px; }
+.mixbar { display: flex; height: 8px; gap: 2px; border-radius: 4px; overflow: hidden; margin: 0 8px; }
+.mixbar i { display: block; }
+.mixlg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin: 8px 8px 0; }
+.mixlg span { display: inline-flex; align-items: center; gap: 6px; }
+.mixlg i { width: 8px; height: 8px; border-radius: 50%; }
+.mixlg b { color: var(--text); font-weight: 600; }
 .pnote { padding: 8px 8px 2px; font-size: 12px; color: var(--muted); line-height: 1.45; }
 /* filters */
 .fwrap { position: relative; }
@@ -399,10 +387,11 @@ function fullGraph() {
 const pEsc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = n => n.toLocaleString();
 const hexA = (h, a) => h;   // (colour passed through; opacity handled in CSS)
-function rows(list, valueOf, max, unit) {
-  return list.map((n, i) => `<div class="li p" data-go="${pEsc(n.id)}" data-hl="p:${pEsc(n.id)}" style="--c:${state.college !== null && curDeptClr[n.d] ? curDeptClr[n.d] : COL[n.c]}">
-    <span class="rk">${i + 1}</span>
-    <div class="tx"><b>${pEsc(n.nm)}</b><small>${pEsc(n.d)}</small></div><span class="v">${fmt(valueOf(n))}${unit || ""}</span></div>`).join("");
+const cap = (left, right) => `<div class="pcap"><span>${left}</span>${right ? `<span>${right}</span>` : ""}</div>`;
+function rows(list, valueOf) {          // people: college (or department) dot, name, department, value
+  return list.map(n => `<div class="li" data-go="${pEsc(n.id)}" data-hl="p:${pEsc(n.id)}">
+    <i class="d" style="background:${state.college !== null && curDeptClr[n.d] ? curDeptClr[n.d] : COL[n.c]}"></i>
+    <div class="tx"><b>${pEsc(n.nm)}</b><small>${pEsc(n.d)}</small></div><span class="v">${fmt(valueOf(n))}</span></div>`).join("");
 }
 function panelRender() {
   const g = fullGraph(), pt = document.getElementById("pt"), ps = document.getElementById("ps"), body = document.getElementById("pb");
@@ -412,14 +401,18 @@ function panelRender() {
   if (state.ego && g.nodes.has(state.ego)) {                        // ---- person
     const n = g.nodes.get(state.ego), nbs = [...(g.nb.get(n.id) || [])].map(([id, w]) => ({ n: g.nodes.get(id), w })).sort((a, b) => b.w - a.w);
     pt.textContent = n.nm; ps.innerHTML = `<i style="background:${COL[n.c]}"></i>${pEsc(D.colleges[n.c])} · ${pEsc(n.d)}`;
-    const reach = new Set(nbs.map(x => x.n.c)), same = nbs.filter(x => x.n.c === n.c).length;
+    const reach = new Set(nbs.map(x => x.n.c));
     if (n.f) h += `<div class="pnote" style="padding-top:12px">◆ CFEP cluster: <b style="color:var(--text)">${pEsc(D.cfep[n.k] || "")}</b></div>`;
-    h += `<div class="grid3"><div><b>${fmt(n.p)}</b><small>${state.psi ? metric : metric.toLowerCase()}</small></div><div><b>${nbs.length}</b><small>collaborators</small></div><div><b>${reach.size || 0}</b><small>${reach.size === 1 ? "college" : "colleges"} reached</small></div></div>`;
+    h += `<div class="pstats"><div><b>${fmt(n.p)}</b><small>${state.psi ? metric : metric.toLowerCase()}</small></div><div><b>${nbs.length}</b><small>collaborators</small></div><div><b>${reach.size || 0}</b><small>${reach.size === 1 ? "college" : "colleges"}</small></div></div>`;
     if (nbs.length) {
-      h += `<div class="pnote">${same} in ${pEsc(D.colleges[n.c])}, ${nbs.length - same} in other colleges.</div>`;
-      const max = nbs[0].w;
-      h += `<h3>Collaborators <small>shared papers</small></h3>` + nbs.map(x => `<div class="li p" data-go="${pEsc(x.n.id)}" data-hl="p:${pEsc(x.n.id)}" style="--c:${COL[x.n.c]}">
-        <div class="tx"><b>${pEsc(x.n.nm)}</b><small>${pEsc(x.n.d)}${x.n.c !== n.c ? " · " + pEsc(D.colleges[x.n.c]) : ""}</small></div><span class="v">${x.w}</span></div>`).join("");
+      // collaborators by college: their own college first, then the rest by size
+      const byC = new Map(); nbs.forEach(x => byC.set(x.n.c, (byC.get(x.n.c) || 0) + 1));
+      const cs = [...byC.keys()].sort((a, b) => (a === n.c ? -1 : b === n.c ? 1 : byC.get(b) - byC.get(a)));
+      h += cap("Collaborators by college") + `<div class="mixbar">${cs.map(c => `<i style="flex:${byC.get(c)};background:${COL[c]}"></i>`).join("")}</div>` +
+        `<div class="mixlg">${cs.map(c => `<span><i style="background:${COL[c]}"></i>${pEsc(D.colleges[c])}<b>${byC.get(c)}</b></span>`).join("")}</div>`;
+      h += cap("Collaborators", "Shared papers") + nbs.map(x => `<div class="li" data-go="${pEsc(x.n.id)}" data-hl="p:${pEsc(x.n.id)}">
+        <i class="d" style="background:${COL[x.n.c]}"></i><div class="tx"><b>${pEsc(x.n.nm)}</b><small>${pEsc(x.n.d)}${x.n.c !== n.c ? " · " + pEsc(D.colleges[x.n.c]) : ""}</small></div>
+        <span class="v">${x.w}</span></div>`).join("");
     } else h += `<div class="pnote">${state.psi || state.cfep ? "No collaborations with anyone else inside the current filters." : "No collaborations in " + PERIODS[state.block] + "."}</div>`;
   } else if (state.college !== null) {                               // ---- college
     const c = state.college, people = [...g.nodes.values()].filter(n => n.c === c).sort((a, b) => b.p - a.p);
@@ -428,25 +421,22 @@ function panelRender() {
     g.edges.forEach(e => { const a = g.nodes.get(e[0]), b = g.nodes.get(e[1]), w = e[2];
       if (a.c === c && b.c === c) { dep.get(a.d).within += w; if (b.d !== a.d) dep.get(b.d).within += w; }
       else if (a.c === c) dep.get(a.d).cross += w; else if (b.c === c) dep.get(b.d).cross += w; });
-    const list = [...dep.values()].sort((a, b) => (b.within + b.cross) - (a.within + a.cross)), mx = Math.max(1, ...list.map(x => x.within + x.cross));
+    const list = [...dep.values()].sort((a, b) => (b.within + b.cross) - (a.within + a.cross));
     const depts = [...new Set(people.map(n => n.d))].length;
     pt.textContent = D.colleges[c]; ps.innerHTML = `<i style="background:${COL[c]}"></i>${fmt(people.length)} faculty · ${depts} departments`;
-    h += `<h3>Most active <small>${state.psi ? metric : metric.toLowerCase()}</small></h3>` + rows(people.slice(0, 10), n => n.p, people[0] ? people[0].p : 1);
-    h += `<h3>Departments <small>shared papers</small></h3><div class="key"><span style="--k:${COL[c]}">within ${pEsc(D.colleges[c])}</span><span style="--k:rgba(255,255,255,.35)">with other colleges</span></div>`;
-    h += list.map(x => { const t = x.within + x.cross, col = curDeptClr[x.d] || COL[c];
-      return `<div class="dept" data-hl="d:${pEsc(x.d)}"><div class="top"><i style="background:${col}"></i><b title="${pEsc(x.d)}">${pEsc(x.d)}</b><span>${x.n} faculty</span></div>
-      <div class="stk" style="width:calc(${(t / mx * 100).toFixed(1)}% - 18px)"><i style="width:${t ? x.within / t * 100 : 0}%;background:${col}"></i><i style="flex:1;background:rgba(255,255,255,.35)"></i></div>
-      <small>${fmt(x.within)} within · ${fmt(x.cross)} cross-college</small></div>`; }).join("");
+    h += cap("Most active", metric) + rows(people.slice(0, 10), n => n.p);
+    h += cap("Departments", "Shared papers") + list.map(x => `<div class="li" data-hl="d:${pEsc(x.d)}"><i class="d" style="background:${curDeptClr[x.d] || COL[c]}"></i>
+      <div class="tx"><b title="${pEsc(x.d)}">${pEsc(x.d)}</b><small>${x.n} faculty · ${fmt(x.within)} within · ${fmt(x.cross)} cross-college</small></div><span class="v">${fmt(x.within + x.cross)}</span></div>`).join("");
   } else {                                                           // ---- everything
     const top = [...g.nodes.values()].sort((a, b) => b.p - a.p).slice(0, 10);
     pt.textContent = "Overview"; ps.textContent = `${PERIODS[state.block]} · ${fmt(g.nodes.size)} faculty`;
-    h += `<h3>Most active <small>${state.psi ? metric : metric.toLowerCase()}</small></h3>` + rows(top, n => n.p, top[0].p);
+    h += cap("Most active", metric) + rows(top, n => n.p);
     const pair = new Map();
     g.edges.forEach(e => { const a = g.nodes.get(e[0]).c, b = g.nodes.get(e[1]).c; if (a === b) return;
       const k = Math.min(a, b) + "|" + Math.max(a, b); pair.set(k, (pair.get(k) || 0) + e[2]); });
     const pl = [...pair].sort((a, b) => b[1] - a[1]).slice(0, 6);
-    if (pl.length) { const mx = pl[0][1];
-      h += `<h3>Colleges that collaborate most <small>shared papers</small></h3>` + pl.map(([k, v]) => { const [a, b] = k.split("|").map(Number);
+    if (pl.length) {
+      h += cap("Top college pairs", "Shared papers") + pl.map(([k, v]) => { const [a, b] = k.split("|").map(Number);
         return `<div class="li pr"><span class="pair"><i style="background:${COL[a]}"></i><i style="background:${COL[b]}"></i></span>
         <div class="tx"><b>${pEsc(D.colleges[a])} · ${pEsc(D.colleges[b])}</b></div><span class="v">${fmt(v)}</span></div>`; }).join(""); }
   }
@@ -616,7 +606,7 @@ addEventListener("keydown", e => { if (e.key === "/" && document.activeElement !
   if (q.has("focus")) focusId = q.get("focus");   // test hook: ?ego=<id>&focus=<collaborator id>
   if (q.has("popup")) setTimeout(() => setPop(true), 60);   // test hook
   if (q.has("panel")) setTimeout(() => setPanel(true), 60);   // test hook
-  if (q.has("tipedge")) setTimeout(() => { const el = gH.selectAll("line").nodes()[+q.get("tipedge")];
+  if (q.has("tipedge")) setTimeout(() => { const el = gH.selectAll("path").nodes()[+q.get("tipedge")];
     if (el) el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, clientX: 640, clientY: 300 })); }, 80);   // test hook
   if (q.has("search")) setTimeout(() => { qIn.value = q.get("search"); runSearch(); if (q.has("enter") && hits[0]) pick(hits[0]); }, 50); }
 
@@ -734,8 +724,8 @@ function buildDom() {
   hitG = d3.range(NGROUP).map(() => gH.append("g").attr("class", "hg off"));
   nodeG = d3.range(10).map(() => gN.append("g").attr("class", "ng off"));
   for (let g = 0; g < NGROUP; g++) {
-    edgeG[g].selectAll("line").data(scene.byG[g]).enter().append("line").attr("class", "edge").attr("stroke-width", d => wS(d.w)).each(function (d) { d.el = this; });
-    hitG[g].selectAll("line").data(scene.byG[g]).enter().append("line").attr("class", "hit").each(function (d) { d.hel = this; })
+    edgeG[g].selectAll("path").data(scene.byG[g]).enter().append("path").attr("class", "edge").attr("stroke-width", d => wS(d.w)).each(function (d) { d.el = this; });
+    hitG[g].selectAll("path").data(scene.byG[g]).enter().append("path").attr("class", "hit").each(function (d) { d.hel = this; })
       .on("mouseover", (ev, d) => { d3.select(d.el).classed("hi", true); showEdgeTip(ev, d); })
       .on("mousemove", moveTip)
       .on("mouseout", (ev, d) => { d3.select(d.el).classed("hi", false); applyEgoEdge(d); hideTip(); });
@@ -815,7 +805,19 @@ function labelXY(members, W, H) {      // labels sit just outside each cluster, 
 }
 function placeLabels(W, H) { for (const g of groups) { if (!g.members.length) continue; const [x, y] = labelXY(g.members, W, H); g.el.setAttribute("x", x); g.el.setAttribute("y", y); } }
 const place = (n, x, y, r) => { n.x = x; n.y = y; n.r = r; n.el.setAttribute("transform", "translate(" + x + "," + y + ") scale(" + r + ")"); };
-const setEdge = e => { for (const el of [e.el, e.hel]) { el.setAttribute("x1", e.source.x); el.setAttribute("y1", e.source.y); el.setAttribute("x2", e.target.x); el.setAttribute("y2", e.target.y); } };
+// Ties inside a cluster are straight. Ties between clusters (colleges, or departments inside a college) bend towards the
+// middle of the ring so they bundle into flows instead of a tangle; the bend grows with how far apart the two clusters
+// sit around the ring, so neighbours get nearly straight lines and ties across the ring curve through the centre.
+const STRAIGHT = new URLSearchParams(location.search).has("straight");   // temporary: ?straight draws every tie as a straight line, to compare
+const edgeD = e => {
+  const a = e.source, b = e.target;
+  if (STRAIGHT || a.g === b.g) return "M" + a.x + "," + a.y + "L" + b.x + "," + b.y;
+  const cx = innerWidth / 2, cy = innerHeight / 2, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;   // layouts are centred on the window
+  let ang = Math.abs(Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)); if (ang > Math.PI) ang = 2 * Math.PI - ang;
+  const k = .6 * ang / Math.PI;
+  return "M" + a.x + "," + a.y + "Q" + (mx + (cx - mx) * k) + "," + (my + (cy - my) * k) + " " + b.x + "," + b.y;
+};
+const setEdge = e => { const d = edgeD(e); e.el.setAttribute("d", d); e.hel.setAttribute("d", d); };
 const fade = (sel, v, ms, delay) => { const el = sel.node(); el.style.transition = ms ? "opacity " + ms + "ms ease " + (delay || 0) + "ms" : "none"; el.style.opacity = v; };
 
 function refreshUI() { legend(scene.counts); crumbs(); applyEgo(); filtersUI(); panelRender(); statsRender(); }
@@ -899,7 +901,7 @@ function showView(view, animate) {
     if (run !== anim) return;                                    // a newer view change took over
     const t = Math.min(1, (now - t0) / DUR), e = d3.easeCubicInOut(t);
     for (const m of moving) place(m.n, m.x0 + (m.x1 - m.x0) * e, m.y0 + (m.y1 - m.y0) * e, m.r0 + (m.r1 - m.r0) * e);
-    for (const ed of movingEdges) { const el = ed.el; el.setAttribute("x1", ed.source.x); el.setAttribute("y1", ed.source.y); el.setAttribute("x2", ed.target.x); el.setAttribute("y2", ed.target.y); }
+    for (const ed of movingEdges) ed.el.setAttribute("d", edgeD(ed));
     placeLabels(W, H);
     if (!labelsOn && t > .45) { labelsOn = true; groups.forEach(g => g.el.classList.remove("pre")); }
     if (!userZoomed) {
