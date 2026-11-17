@@ -6,7 +6,6 @@ Builds the year-by-year animation page from the per-year graph CSVs.
 INPUT (same folder):
   network_data/nodes_YYYY.csv   (from 02_build_graphs.py)
   network_data/edges_YYYY.csv   (from 02_build_graphs.py)
-  psi_net.json                  (PSI collaboration data; optional - the PSI filter is empty without it)
   CFEP_2026_PARTNERS - CFEP_Personnel_Oct_2025_By_Cluster.csv
                                 (CFEP personnel by cluster; optional - without it no one is a CFEP member)
   animation_template.html       (the page; contains the __DATA__ placeholder)
@@ -72,30 +71,11 @@ def main():
                 papers = [title(t) for t in r["papers"].split("|") if t.strip()][:ui.MAX_PAPERS]
                 edges.append([here[r["source"]][0], here[r["target"]][0], int(r["weight"] or 1), papers])
         # node row: [person index, publications that year]; edge row: [person index, person index, shared papers, [title indexes]]
-        years[str(yr)] = {"n": list(here.values()), "e": edges, "_ids": here}
+        years[str(yr)] = {"n": list(here.values()), "e": edges}
         print(f"  {yr}: {len(here):,} faculty, {len(edges):,} collaborations")
 
-    psi = {}
-    if os.path.exists(ui.PSI_JSON):
-        with open(ui.PSI_JSON, encoding="utf-8") as f:
-            psi_net = json.load(f)
-        for yr in YEARS:
-            y, here = psi_net.get(str(yr)), years[str(yr)]["_ids"]
-            if not y:
-                continue
-            # PSI people must also be in that year's main graph, so they have a college and a position
-            n = [[here[p["id"]][0], int(p["py"])] for p in y["n"] if p["id"] in here]
-            e = [[here[x["s"]][0], here[x["t"]][0], int(x["w"]),
-                  [title(t) for t in x.get("p", []) if t.strip()][:ui.MAX_PAPERS]]
-                 for x in y["e"] if x["s"] in here and x["t"] in here]
-            psi[str(yr)] = {"n": n, "e": e}
-    else:
-        print(f"  WARNING: {ui.PSI_JSON} not found - the PSI filter will be empty")
-    for y in years.values():
-        del y["_ids"]
-
     data = {"colleges": [short for _, short in ui.COLLEGES], "cfep": cfep_clusters, "people": people,
-            "titles": titles, "years": years, "psi": psi}
+            "titles": titles, "years": years}
     with open(TEMPLATE, encoding="utf-8") as f:
         html = f.read()
     if "__DATA__" not in html:

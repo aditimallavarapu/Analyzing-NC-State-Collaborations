@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Year by Year · Layout Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #121211; --bg-rgb: 18,18,17; --ink: 255,255,255; --surface: #1a1a18;
+  --line: rgba(var(--ink),.09); --text: #f0efec; --muted: #a3a29a; --faint: #6f6e68; --e-now: .34;
+  --font: Inter, "Segoe UI", system-ui, -apple-system, sans-serif; --serif: "Instrument Serif", Georgia, serif;
+  --c0:#3987e5; --c1:#d95926; --c2:#199e70; --c3:#c98500; --c4:#d55181; --c5:#9085e9; --c6:#008300; --c7:#e66767; --c8:#1b98b0; --c9:#8f9a1c;
+}
+:root[data-theme="light"] {
+  --bg: #f6f5f1; --bg-rgb: 246,245,241; --ink: 20,20,18; --surface: #ffffff;
+  --text: #1b1b19; --muted: #5d5c56; --faint: #8a8981; --e-now: .45;
+  --c2:#18956a; --c3:#c28000; --c5:#8478e7; --c6:#359f3e; --c7:#e35555; --c8:#1a90a7; --c9:#b66ecf;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0b0b0a; color: #e8e7e3; font-family: var(--font); }
+:root[data-theme="light"] body { background: #dddcd6; color: #1b1b19; }
+
+/* page chrome (not part of the mockups) */
+.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 14px 24px;
+  background: inherit; border-bottom: 1px solid rgba(128,128,128,.2); }
+.top h1 { font-size: 15px; font-weight: 650; margin-right: 12px; }
+.tab { font: 600 13px var(--font); padding: 7px 12px; border-radius: 9px; border: 1px solid rgba(128,128,128,.3); background: none; color: inherit; cursor: pointer; }
+.tab.on { background: #f0efec; color: #121211; border-color: transparent; }
+:root[data-theme="light"] .tab.on { background: #1b1b19; color: #fff; }
+.tab.new::after { content: "new"; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: #3987e5; }
+.top .sp { flex: 1; }
+.note { max-width: 1440px; margin: 18px auto 10px; padding: 0 24px; font-size: 14px; line-height: 1.55; color: #a3a29a; }
+.note b { color: inherit; }
+:root[data-theme="light"] .note { color: #5d5c56; }
+.wrap { padding: 0 24px 40px; }
+.frame { width: 1440px; height: 860px; transform-origin: top left; position: relative; overflow: hidden; border-radius: 12px;
+  background: var(--bg); color: var(--text); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.mock { display: none; position: absolute; inset: 0; } .mock.on { display: block; }
+
+/* shared */
+.net { position: absolute; }
+.net svg { width: 100%; height: 100%; display: block; }
+.edge { stroke: rgb(var(--ink)); stroke-opacity: var(--e-now); fill: none; stroke-width: .8; }
+.node { stroke: var(--bg); stroke-width: 1.2; }
+.lbl { font: 600 13px var(--font); fill: var(--muted); text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand i { display: inline-flex; align-items: center; height: 24px; padding: 0 7px; background: #cc0000; color: #fff; font: 800 13px var(--font); font-style: normal; letter-spacing: -.02em; border-radius: 2px; }
+.brand span { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.play { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--text); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.play svg { width: 15px; height: 15px; fill: var(--bg); }
+.seg { display: inline-flex; padding: 3px; border-radius: 9px; background: rgba(var(--ink),.06); }
+.seg span { font: 600 12px var(--font); color: var(--muted); padding: 5px 9px; border-radius: 7px; }
+.seg span.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.cap { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+.links { display: flex; gap: 18px; font-size: 13px; color: var(--muted); }
+.links span.on { color: var(--text); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.iconbtn { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: none; display: inline-flex; align-items: center; justify-content: center; }
+.iconbtn svg { width: 15px; height: 15px; stroke: var(--muted); fill: none; stroke-width: 1.8; stroke-linecap: round; }
+.num { font-variant-numeric: tabular-nums; }
+.corner { position: absolute; right: 26px; top: 24px; display: flex; align-items: center; gap: 18px; }
+.bars { display: flex; align-items: flex-end; gap: 4px; }
+.bars i { flex: 1; border-radius: 2px; background: rgba(var(--ink),.12); }
+.bars i.past { background: rgba(var(--ink),.3); } .bars i.on { background: var(--text); }
+.ticks { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); }
+
+/* C: editorial (original) */
+.C .net { left: 380px; right: 0; top: 0; bottom: 0; }
+.C .col { position: absolute; left: 56px; top: 40px; bottom: 40px; width: 300px; display: flex; flex-direction: column; }
+.C .year { font-size: 132px; font-weight: 750; letter-spacing: -.06em; line-height: .9; margin-top: 64px; }
+.C .lede { font-size: 17px; line-height: 1.55; color: var(--muted); margin-top: 22px; }
+.C .lede b { color: var(--text); font-weight: 650; }
+.C .ctrl { display: flex; align-items: center; gap: 12px; margin-top: 30px; }
+.C .ctrl small { font-size: 12.5px; color: var(--faint); }
+.C .grow { flex: 1; }
+.C .bars { height: 36px; } .C .ticks { margin-top: 7px; }
+.C .links { margin-top: 22px; }
+
+/* D: timeline rail */
+.D .rail { position: absolute; left: 0; top: 0; bottom: 0; width: 96px; border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 22px 0; gap: 18px; }
+.D .rail .logo { background: #cc0000; color: #fff; font: 800 11px var(--font); padding: 4px 6px; border-radius: 2px; }
+.D .track { flex: 1; position: relative; width: 100%; }
+.D .line { position: absolute; left: 30px; top: 4px; bottom: 4px; width: 2px; background: rgba(var(--ink),.12); border-radius: 1px; }
+.D .fill { position: absolute; left: 30px; top: 4px; width: 2px; background: var(--text); border-radius: 1px; }
+.D .tk { position: absolute; left: 27px; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--bg); border: 1.5px solid rgba(var(--ink),.3); }
+.D .tk.past { border-color: var(--text); background: var(--text); }
+.D .tk.on { left: 23px; width: 16px; height: 16px; margin-top: -8px; background: var(--text); border: 3px solid var(--bg); box-shadow: 0 0 0 1.5px var(--text); }
+.D .tl { position: absolute; left: 46px; font-size: 10.5px; color: var(--faint); transform: translateY(-50%); }
+.D .tl.on { color: var(--text); font-weight: 700; font-size: 12px; }
+.D .net { left: 96px; right: 0; top: 70px; bottom: 0; }
+.D .head { position: absolute; left: 128px; top: 26px; right: 26px; display: flex; align-items: baseline; gap: 26px; }
+.D .head .year { font-size: 40px; font-weight: 700; letter-spacing: -.03em; }
+.D .head .st { font-size: 13px; color: var(--muted); }
+.D .head .st b { color: var(--text); font-weight: 650; font-size: 15px; margin-right: 5px; }
+
+/* E: cinematic. Full-bleed network, caption bottom-left, video-style scrubber across the bottom */
+.E .net { left: 300px; right: 0; top: 24px; bottom: 96px; }
+.E .brandpos { position: absolute; left: 32px; top: 28px; }
+.E .caption { position: absolute; left: 32px; bottom: 128px; width: 380px; }
+.E .caption .year { font-size: 88px; font-weight: 750; letter-spacing: -.05em; line-height: .9; }
+.E .caption p { font-size: 15.5px; line-height: 1.55; color: var(--muted); margin-top: 14px; }
+.E .caption p b { color: var(--text); font-weight: 650; }
+.E .scrub { position: absolute; left: 32px; right: 32px; bottom: 26px; display: flex; align-items: center; gap: 20px; }
+.E .scrub .tl { flex: 1; }
+.E .yrs { display: flex; }
+.E .yrs span { flex: 1; text-align: center; font-size: 10.5px; color: var(--faint); padding-top: 8px; position: relative; }
+.E .yrs span::before { content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: 4px; background: rgba(var(--ink),.25); }
+.E .yrs span.on { color: var(--text); font-weight: 700; }
+.E .rail { height: 3px; border-radius: 2px; background: rgba(var(--ink),.12); position: relative; }
+.E .rail i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--text); }
+.E .rail b { position: absolute; top: 50%; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 4px var(--bg); }
+.E .scrub .bars { height: 22px; gap: 0; margin-bottom: 6px; }
+.E .scrub .bars i { margin: 0 6px; }
+
+/* F: year wheel. Neighbouring years stacked like a drum around the current one */
+.F .net { left: 420px; right: 0; top: 0; bottom: 0; }
+.F .col { position: absolute; left: 56px; top: 36px; bottom: 36px; width: 340px; display: flex; flex-direction: column; }
+.F .wheel { margin-top: 70px; display: flex; flex-direction: column; font-weight: 750; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.F .wheel span { color: var(--text); }
+.F .wheel .w3 { font-size: 20px; opacity: .12; } .F .wheel .w2 { font-size: 30px; opacity: .22; } .F .wheel .w1 { font-size: 44px; opacity: .38; margin-bottom: 8px; }
+.F .wheel .w0 { font-size: 120px; letter-spacing: -.06em; margin: 4px 0 10px -4px; }
+.F .wheel .a1 { margin-top: 0; }
+.F .lede { font-size: 15.5px; line-height: 1.55; color: var(--muted); margin-top: 22px; max-width: 320px; }
+.F .lede b { color: var(--text); font-weight: 650; }
+.F .grow { flex: 1; }
+.F .ctrl { display: flex; align-items: center; gap: 12px; }
+.F .links { margin-top: 22px; }
+
+/* G: data poster. Big stacked numbers with change from last year, sparkline timeline */
+.G .net { left: 420px; right: 0; top: 0; bottom: 0; }
+.G .col { position: absolute; left: 56px; top: 36px; bottom: 36px; width: 330px; display: flex; flex-direction: column; }
+.G .yearrow { display: flex; align-items: baseline; gap: 14px; margin-top: 56px; }
+.G .yearrow b { font-size: 52px; font-weight: 750; letter-spacing: -.04em; }
+.G .stat { margin-top: 26px; }
+.G .stat b { display: block; font-size: 58px; font-weight: 700; letter-spacing: -.045em; line-height: 1; }
+.G .stat div { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; font-size: 13px; color: var(--muted); padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.G .stat em { font-style: normal; font-size: 12px; color: #4fb37e; font-weight: 600; }
+.G .grow { flex: 1; }
+.G .spark { height: 64px; width: 100%; }
+.G .spark polyline { fill: none; stroke: rgba(var(--ink),.35); stroke-width: 1.6; }
+.G .spark .area { fill: rgba(var(--ink),.05); stroke: none; }
+.G .spark circle { fill: var(--text); stroke: var(--bg); stroke-width: 3; }
+.G .ctrl { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.G .ctrl .links { margin-left: auto; }
+
+/* H: serif editorial. Newspaper kicker, serif year and sentence, hairlines, years as text */
+.H .net { left: 440px; right: 0; top: 0; bottom: 0; }
+.H .col { position: absolute; left: 60px; top: 38px; bottom: 38px; width: 350px; display: flex; flex-direction: column; }
+.H .kicker { font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); padding: 14px 0; border-top: 1px solid rgba(var(--ink),.5); border-bottom: 1px solid var(--line); margin-top: 26px; }
+.H .year { font-family: var(--serif); font-size: 150px; line-height: .85; letter-spacing: -.02em; margin-top: 40px; font-weight: 400; }
+.H .lede { font-family: var(--serif); font-size: 25px; line-height: 1.3; margin-top: 18px; color: var(--muted); }
+.H .lede em { color: var(--text); font-style: italic; }
+.H .grow { flex: 1; }
+.H .yrs { display: grid; grid-template-columns: repeat(10, 1fr); row-gap: 8px; font-size: 12.5px; color: var(--faint); padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.H .yrs span.past { color: var(--muted); }
+.H .yrs span.on { color: var(--text); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.H .ctrl { display: flex; align-items: center; gap: 18px; margin-top: 16px; font-size: 13px; color: var(--muted); }
+.H .ctrl .tx { font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.H .ctrl .tx svg { width: 11px; height: 11px; fill: var(--text); }
+.H .ctrl .links { margin-left: auto; gap: 14px; }
+
+/* I: watermark. The year is huge and faint behind the network; foreground is almost empty */
+.I .ghost { position: absolute; left: -20px; bottom: -70px; font-size: 470px; font-weight: 800; letter-spacing: -.07em; line-height: 1;
+  color: transparent; -webkit-text-stroke: 1.5px rgba(var(--ink),.1); font-variant-numeric: tabular-nums; user-select: none; }
+.I .net { left: 260px; right: 0; top: 0; bottom: 84px; }
+.I .brandpos { position: absolute; left: 36px; top: 30px; }
+.I .stats { position: absolute; left: 36px; top: 96px; display: flex; flex-direction: column; gap: 16px; }
+.I .stats div b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.03em; }
+.I .stats div small { font-size: 12px; color: var(--muted); }
+.I .dock { position: absolute; left: 50%; bottom: 26px; transform: translateX(-34%); display: flex; align-items: center; gap: 16px; padding: 8px 10px 8px 8px; border-radius: 100px; }
+.I .dock .yrs { display: flex; gap: 2px; }
+.I .dock .yrs span { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 9.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.I .dock .yrs span.past { color: var(--muted); }
+.I .dock .yrs span.on { background: var(--text); color: var(--bg); font-weight: 700; width: 34px; border-radius: 11px; font-size: 11px; }
+
+/* ---------- round 3 ---------- */
+.play.sm { width: 38px; height: 38px; } .play.sm svg { width: 13px; height: 13px; }
+
+/* J: college-pair matrix */
+.J .net { left: 430px; right: 0; top: 0; bottom: 0; }
+.J .col { position: absolute; left: 56px; top: 36px; bottom: 36px; width: 340px; display: flex; flex-direction: column; }
+.J .year { font-size: 84px; font-weight: 750; letter-spacing: -.05em; line-height: .9; margin-top: 46px; }
+.J .mx { margin-top: 28px; display: grid; grid-template-columns: 14px repeat(10, 24px); grid-auto-rows: 24px; gap: 3px; }
+.J .mx i { border-radius: 3px; background: rgba(var(--ink),.05); }
+.J .mx i.v { background: rgba(var(--ink), var(--a)); }
+.J .mx i.top { outline: 2px solid var(--text); outline-offset: 1px; }
+.J .mx i.no { background: none; }
+.J .mx b { width: 8px; height: 8px; border-radius: 50%; align-self: center; justify-self: center; }
+.J .mxcap { font-size: 14px; color: var(--muted); margin-top: 14px; line-height: 1.5; }
+.J .mxcap b { color: var(--text); }
+.J .trio { display: flex; gap: 26px; margin-top: 22px; }
+.J .trio b { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.J .trio small { font-size: 12px; color: var(--muted); }
+.J .grow { flex: 1; }
+.J .bars { height: 30px; } .J .ticks { margin-top: 6px; }
+.J .ctrl { display: flex; align-items: center; gap: 12px; margin-top: 14px; } .J .ctrl .links { margin-left: auto; }
+
+/* K: Swiss grid. Giant year, red accent, stats band along the bottom */
+.K .net { left: 360px; right: 0; top: 0; bottom: 170px; }
+.K .yr { position: absolute; left: 44px; top: 86px; font-size: 210px; font-weight: 800; letter-spacing: -.07em; line-height: .78; }
+.K .yr::after { content: ""; display: block; width: 64px; height: 8px; background: #cc0000; margin-top: 26px; }
+.K .tag { position: absolute; left: 48px; top: 500px; width: 270px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.K .brandpos { position: absolute; left: 44px; top: 28px; }
+.K .band { position: absolute; left: 0; right: 0; bottom: 0; height: 170px; border-top: 2px solid var(--text); display: flex; flex-direction: column; }
+.K .cells { display: flex; height: 34px; border-bottom: 1px solid var(--line); }
+.K .cells span { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--faint); border-right: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.K .cells span.past { color: var(--muted); }
+.K .cells span.on { background: #cc0000; color: #fff; font-weight: 700; }
+.K .cells .pl { flex: 0 0 120px; color: var(--text); font-weight: 700; gap: 8px; }
+.K .cells .pl svg { width: 10px; height: 10px; fill: currentColor; }
+.K .figs { flex: 1; display: flex; }
+.K .figs div { flex: 1; padding: 20px 24px; border-right: 1px solid var(--line); }
+.K .figs div:last-child { border-right: 0; }
+.K .figs b { display: block; font-size: 44px; font-weight: 750; letter-spacing: -.04em; line-height: 1; }
+.K .figs small { display: block; margin-top: 10px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.K .corner { top: 26px; }
+
+/* L: headline. Each year gets a written headline */
+.L .net { left: 470px; right: 0; top: 0; bottom: 0; }
+.L .col { position: absolute; left: 60px; top: 36px; bottom: 36px; width: 380px; display: flex; flex-direction: column; }
+.L .dateline { margin-top: 64px; display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.L .dateline b { font-size: 13px; color: var(--bg); background: var(--text); padding: 3px 9px; border-radius: 6px; font-variant-numeric: tabular-nums; }
+.L h2 { font-family: var(--serif); font-weight: 400; font-size: 46px; line-height: 1.05; letter-spacing: -.01em; margin-top: 18px; }
+.L h2 em { font-style: italic; }
+.L ul { list-style: none; margin-top: 26px; border-top: 1px solid var(--line); }
+.L li { display: flex; gap: 14px; align-items: baseline; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--muted); line-height: 1.4; }
+.L li b { flex: 0 0 64px; font-size: 20px; color: var(--text); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.L .grow { flex: 1; }
+.L .ctrl { display: flex; align-items: center; gap: 14px; }
+.L .dots { display: flex; gap: 5px; align-items: center; flex: 1; }
+.L .dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(var(--ink),.18); }
+.L .dots i.past { background: rgba(var(--ink),.45); }
+.L .dots i.on { width: 20px; border-radius: 3px; background: var(--text); }
+
+/* M: instrument readout in monospace */
+.M { --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; font-family: var(--mono); }
+.M .net { left: 420px; right: 0; top: 0; bottom: 0; }
+.M .col { position: absolute; left: 44px; top: 34px; bottom: 34px; width: 340px; display: flex; flex-direction: column; font-size: 12.5px; }
+.M .hd { color: var(--faint); letter-spacing: .04em; }
+.M .hd b { color: #cc0000; }
+.M .big { font-size: 96px; font-weight: 700; letter-spacing: -.06em; line-height: .9; margin-top: 52px; }
+.M .rd { margin-top: 30px; display: flex; flex-direction: column; gap: 10px; }
+.M .rd div { display: flex; gap: 8px; color: var(--muted); white-space: nowrap; }
+.M .rd div::after { content: ""; order: 1; flex: 1; border-bottom: 1px dotted rgba(var(--ink),.25); margin-bottom: 4px; }
+.M .rd b { order: 2; color: var(--text); font-weight: 700; }
+.M .rd em { order: 3; font-style: normal; width: 52px; text-align: right; color: #4fb37e; }
+.M .grow { flex: 1; }
+.M .spark { display: flex; align-items: flex-end; gap: 3px; height: 54px; }
+.M .spark i { flex: 1; background: repeating-linear-gradient(to top, rgba(var(--ink),.35) 0 2px, transparent 2px 4px); }
+.M .spark i.on { background: repeating-linear-gradient(to top, #cc0000 0 2px, transparent 2px 4px); }
+.M .spark i.fut { background: repeating-linear-gradient(to top, rgba(var(--ink),.12) 0 2px, transparent 2px 4px); }
+.M .axis { display: flex; justify-content: space-between; color: var(--faint); font-size: 10.5px; margin-top: 6px; }
+.M .keys { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.M .keys span { border: 1px solid var(--line); padding: 6px 9px; border-radius: 4px; color: var(--muted); }
+.M .keys span.on { color: var(--bg); background: var(--text); border-color: var(--text); font-weight: 700; }
+
+/* N: orbit dial. The 20 years run around the network like a clock face */
+.N .net { left: 410px; top: 120px; width: 620px; height: 620px; }
+.N .net svg { overflow: visible; }
+.N svg.dial { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.N .dial .trk { fill: none; stroke: rgba(var(--ink),.1); stroke-width: 2; }
+.N .dial .prog { fill: none; stroke: var(--text); stroke-width: 2; stroke-linecap: round; }
+.N .dial .dot { fill: var(--bg); stroke: rgba(var(--ink),.35); stroke-width: 1.5; }
+.N .dial .dot.past { fill: var(--text); stroke: var(--text); }
+.N .dial .dot.on { fill: var(--text); stroke: var(--bg); stroke-width: 3; }
+.N .dial text { font: 500 11px var(--font); fill: var(--faint); text-anchor: middle; dominant-baseline: middle; font-variant-numeric: tabular-nums; }
+.N .dial text.on { font-size: 15px; font-weight: 750; fill: var(--text); }
+.N .dial text.past { fill: var(--muted); }
+.N .playpos { position: absolute; left: 698px; top: 780px; }
+.N .tl { position: absolute; left: 40px; top: 30px; }
+.N .tl .year { font-size: 64px; font-weight: 750; letter-spacing: -.05em; line-height: 1; margin-top: 30px; }
+.N .bl { position: absolute; left: 40px; bottom: 36px; display: flex; flex-direction: column; gap: 14px; }
+.N .bl b { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.N .bl small { font-size: 12px; color: var(--muted); }
+.N .br { position: absolute; right: 40px; bottom: 36px; width: 240px; text-align: right; }
+.N .br .pair { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; font-weight: 600; }
+.N .br .pair i { width: 9px; height: 9px; border-radius: 50%; }
+.N .br p { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+
+/* O: composition. What this year's ties are made of */
+.O .net { left: 430px; right: 0; top: 0; bottom: 0; }
+.O .col { position: absolute; left: 56px; top: 36px; bottom: 36px; width: 340px; display: flex; flex-direction: column; }
+.O .year { font-size: 84px; font-weight: 750; letter-spacing: -.05em; line-height: .9; margin-top: 46px; }
+.O .grp { margin-top: 30px; }
+.O .grp h4 { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; font-weight: 500; color: var(--muted); }
+.O .grp h4 b { font-size: 22px; color: var(--text); font-weight: 700; letter-spacing: -.02em; }
+.O .stack { display: flex; height: 12px; gap: 3px; margin-top: 10px; }
+.O .stack i { border-radius: 3px; }
+.O .lg { display: flex; gap: 14px; margin-top: 9px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.O .lg span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--k); }
+.O .lg b { color: var(--text); font-weight: 600; margin-right: 3px; }
+.O .grow { flex: 1; }
+.O .bars { height: 30px; } .O .ticks { margin-top: 6px; }
+.O .ctrl { display: flex; align-items: center; gap: 12px; margin-top: 14px; } .O .ctrl .links { margin-left: auto; }
+
+/* P: spotlight. Three short stories from the year */
+.P .net { left: 440px; right: 0; top: 0; bottom: 0; }
+.P .col { position: absolute; left: 56px; top: 36px; bottom: 36px; width: 350px; display: flex; flex-direction: column; }
+.P .year { font-size: 96px; font-weight: 750; letter-spacing: -.055em; line-height: .9; margin-top: 46px; margin-bottom: 10px; }
+.P .story { display: flex; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.P .story:first-of-type { margin-top: 40px; border-top: 1px solid var(--line); }
+.P .glyph { flex: 0 0 40px; height: 40px; }
+.P .story .cap { margin-bottom: 4px; }
+.P .story b { display: block; font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+.P .story small { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; }
+.P .grow { flex: 1; }
+.P .ctrl { display: flex; align-items: center; gap: 14px; }
+.P .dots { display: flex; gap: 5px; align-items: center; flex: 1; }
+.P .dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(var(--ink),.18); }
+.P .dots i.past { background: rgba(var(--ink),.45); }
+.P .dots i.on { width: 20px; border-radius: 3px; background: var(--text); }
+
+/* ---------- round 4: variations on O ---------- */
+.k1 { --k: var(--text); } .k2 { --k: rgba(var(--ink),.5); } .k3 { --k: rgba(var(--ink),.22); }
+/* Q: O with a stacked timeline (every year split new / continued / returning) */
+.Q .sbars { display: flex; align-items: flex-end; gap: 4px; height: 64px; }
+.Q .sbars div { flex: 1; display: flex; flex-direction: column-reverse; gap: 1px; opacity: .38; }
+.Q .sbars div.on { opacity: 1; }
+.Q .sbars i { display: block; border-radius: 1px; background: var(--k); }
+.Q .stack i, .R .stack i, .T .stack i { background: var(--k); }
+/* R: direct labels inside thick bars, no legends */
+.R .stack { height: 30px; gap: 2px; }
+.R .stack i { display: flex; align-items: center; padding: 0 10px; font: 600 12px var(--font); font-style: normal; white-space: nowrap; overflow: hidden; border-radius: 4px; color: var(--text); }
+.R .stack i.k1 { color: var(--bg); }
+.R .grp h4 b { font-size: 24px; }
+.R .grp { margin-top: 34px; }
+/* S: percent-first, with the cross-college share over time as the timeline */
+.S .pct { margin-top: 30px; }
+.S .pct b { font-size: 46px; font-weight: 750; letter-spacing: -.04em; line-height: 1; }
+.S .pct span { font-size: 14px; color: var(--muted); margin-left: 8px; }
+.S .thin { display: flex; height: 5px; gap: 2px; margin-top: 12px; }
+.S .thin i { border-radius: 3px; background: var(--k); }
+.S .pct small { display: block; font-size: 12px; color: var(--faint); margin-top: 8px; }
+.S .trend { width: 100%; height: 86px; overflow: visible; }
+.S .trend polyline { fill: none; stroke: var(--text); stroke-width: 1.8; stroke-linejoin: round; }
+.S .trend .grid { stroke: rgba(var(--ink),.08); }
+.S .trend text { font: 500 10.5px var(--font); fill: var(--faint); }
+.S .trend circle { fill: var(--text); stroke: var(--bg); stroke-width: 3; }
+.S .trendcap { font-size: 12px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
+.S .trendcap b { color: var(--text); }
+/* T: O refined. Deltas, percentages in the legend, timeline split cross-college / within */
+.T .grp h4 span em { font-style: normal; font-size: 12px; color: var(--faint); margin-left: 8px; }
+.T .lg span { color: var(--muted); } .T .lg em { font-style: normal; color: var(--faint); margin-left: 4px; }
+.T .stack { height: 10px; }
+.T .xbars { display: flex; align-items: flex-end; gap: 4px; height: 48px; }
+.T .xbars div { flex: 1; display: flex; flex-direction: column-reverse; gap: 1px; }
+.T .xbars i { display: block; border-radius: 1px; background: rgba(var(--ink),.16); }
+.T .xbars i.x { background: rgba(var(--ink),.5); }
+.T .xbars div.on i { background: rgba(var(--ink),.4); } .T .xbars div.on i.x { background: var(--text); }
+.T .xcap { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Year by year · layout mockups</h1>
+  <button class="tab" data-m="O">O · Composition</button>
+  <button class="tab new" data-m="Q">Q · Stacked timeline</button>
+  <button class="tab new" data-m="R">R · Direct labels</button>
+  <button class="tab new" data-m="S">S · Percent-first</button>
+  <button class="tab new" data-m="T">T · O refined</button>
+  <span style="font-size:12px;opacity:.55;margin:0 4px 0 14px">Earlier:</span>
+  <button class="tab" data-m="E">E · Cinematic</button>
+  <button class="tab" data-m="F">F · Year wheel</button>
+  <button class="tab" data-m="G">G · Data poster</button>
+  <button class="tab" data-m="H">H · Serif editorial</button>
+  <button class="tab" data-m="I">I · Watermark</button>
+  <button class="tab" data-m="J">J · Pair matrix</button>
+  <button class="tab" data-m="K">K · Swiss grid</button>
+  <button class="tab" data-m="L">L · Headline</button>
+  <button class="tab" data-m="M">M · Instrument</button>
+  <button class="tab" data-m="N">N · Orbit dial</button>
+  <button class="tab" data-m="P">P · Spotlight</button>
+  <button class="tab" data-m="C">C · Editorial</button>
+  <button class="tab" data-m="D">D · Timeline rail</button>
+  <span class="sp"></span>
+  <button class="tab" id="theme">Light / dark</button>
+</div>
+<p class="note" id="note"></p>
+<div class="wrap"><div class="frame" id="frame">
+
+  <!-- E: cinematic -->
+  <div class="mock E" data-m="E">
+    <div class="net" data-net></div>
+    <div class="brandpos brand"><i>NC STATE</i><span>Research Networks</span></div>
+    <div class="corner"><div class="links"><span class="on">Everyone</span><span>PSI</span><span>CFEP</span></div><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+    <div class="caption">
+      <div class="year num">2015</div>
+      <p><b>371</b> faculty, <b>358</b> collaborations. <b>25%</b> crossed college lines; <b>190</b> pairs worked together for the first time.</p>
+    </div>
+    <div class="scrub">
+      <button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button>
+      <div class="tl"><div class="bars" data-bars></div><div class="rail"><i style="width:47.4%"></i><b style="left:47.4%"></b></div><div class="yrs" data-yrs></div></div>
+      <div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div>
+    </div>
+  </div>
+
+  <!-- F: year wheel -->
+  <div class="mock F" data-m="F">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="wheel">
+        <span class="w3">2012</span><span class="w2">2013</span><span class="w1">2014</span>
+        <span class="w0">2015</span>
+        <span class="w1">2016</span><span class="w2">2017</span><span class="w3">2018</span>
+      </div>
+      <p class="lede"><b>371</b> faculty, <b>358</b> collaborations. <b>25%</b> crossed college lines, and <b>190</b> pairs worked together for the first time.</p>
+      <div class="grow"></div>
+      <div class="ctrl"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div></div>
+      <div class="links"><span class="on">Everyone</span><span>PSI only</span><span>CFEP only</span></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- G: data poster -->
+  <div class="mock G" data-m="G">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="yearrow"><b class="num">2015</b><span class="cap">Year 10 of 20</span></div>
+      <div class="stat"><b class="num">371</b><div><span>faculty collaborating</span><em>+58 vs 2014</em></div></div>
+      <div class="stat"><b class="num">358</b><div><span>collaborations</span><em>+91 vs 2014</em></div></div>
+      <div class="stat"><b class="num">25%</b><div><span>across colleges</span><em>+2 pts vs 2014</em></div></div>
+      <div class="grow"></div>
+      <svg class="spark" id="G-spark" viewBox="0 0 330 64" preserveAspectRatio="none"></svg>
+      <div class="ticks" style="margin-top:6px"><span>2006</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+      <div class="ctrl"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div>
+        <div class="links"><span class="on">All</span><span>PSI</span><span>CFEP</span></div></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- H: serif editorial -->
+  <div class="mock H" data-m="H">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="kicker">Who works with whom · 2006 – 2025</div>
+      <div class="year num">2015</div>
+      <p class="lede"><em>371</em> faculty wrote <em>358</em> papers together. One in four crossed a college line, and <em>190</em> pairs met for the first time.</p>
+      <div class="grow"></div>
+      <div class="yrs" data-textyrs></div>
+      <div class="ctrl"><span class="tx"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg>Play</span><span>1×</span><div class="links"><span class="on">Everyone</span><span>PSI</span><span>CFEP</span></div></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- I: watermark -->
+  <div class="mock I" data-m="I">
+    <div class="ghost">2015</div>
+    <div class="net" data-net></div>
+    <div class="brandpos brand"><i>NC STATE</i><span>Research Networks</span></div>
+    <div class="stats">
+      <div><b class="num">371</b><small>faculty collaborating</small></div>
+      <div><b class="num">358</b><small>collaborations</small></div>
+      <div><b class="num">25%</b><small>cross-college</small></div>
+      <div><b class="num">190</b><small>first-time pairs</small></div>
+    </div>
+    <div class="corner"><div class="links"><span class="on">Everyone</span><span>PSI</span><span>CFEP</span></div><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+    <div class="dock"><button class="play" style="width:38px;height:38px"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="yrs" data-dot></div></div>
+  </div>
+
+  <!-- J: college-pair matrix -->
+  <div class="mock J" data-m="J">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="year num">2015</div>
+      <div class="mx" id="J-mx"></div>
+      <p class="mxcap"><b>16 of 45</b> college pairs worked together. Strongest: <b>Sciences × Agriculture</b>, 16 ties.</p>
+      <div class="trio"><div><b class="num">371</b><small>faculty</small></div><div><b class="num">358</b><small>ties</small></div><div><b class="num">25%</b><small>cross-college</small></div></div>
+      <div class="grow"></div>
+      <div class="bars" data-bars></div><div class="ticks"><span>2006</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+      <div class="ctrl"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div><div class="links"><span class="on">All</span><span>PSI</span><span>CFEP</span></div></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- K: Swiss grid -->
+  <div class="mock K" data-m="K">
+    <div class="net" data-net></div>
+    <div class="brandpos brand"><i>NC STATE</i><span>Research Networks</span></div>
+    <div class="yr num">20<br>15</div>
+    <p class="tag">Faculty co-authorship across NC State's ten colleges, one year at a time.</p>
+    <div class="corner"><div class="links"><span class="on">Everyone</span><span>PSI</span><span>CFEP</span></div><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+    <div class="band">
+      <div class="cells" id="K-cells"></div>
+      <div class="figs">
+        <div><b class="num">371</b><small>Faculty collaborating</small></div>
+        <div><b class="num">358</b><small>Collaborations</small></div>
+        <div><b class="num">25%</b><small>Cross-college</small></div>
+        <div><b class="num">190</b><small>First-time pairs</small></div>
+        <div><b class="num">16<span style="color:var(--faint);font-weight:500">/45</span></b><small>College pairs linked</small></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- L: headline -->
+  <div class="mock L" data-m="L">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="dateline"><b>2015</b>Year 10 of 20</div>
+      <h2><em>Sciences</em> and <em>Agriculture</em> were the busiest bridge on campus.</h2>
+      <ul>
+        <li><b>16</b>joint ties between the two colleges, the most of any pair</li>
+        <li><b>25%</b>of all 358 collaborations crossed a college line</li>
+        <li><b>118</b>faculty reached outside their own college</li>
+        <li><b>190</b>pairs published together for the first time</li>
+      </ul>
+      <div class="grow"></div>
+      <div class="ctrl"><button class="play sm"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="dots" data-dots></div><span style="font-size:12px;color:var(--muted)">1×</span></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><div class="links"><span class="on">Everyone</span><span>PSI</span><span>CFEP</span></div><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- M: instrument -->
+  <div class="mock M" data-m="M">
+    <div class="col">
+      <div class="hd"><b>■</b> NCSU / RESEARCH-NETWORKS / YEAR-BY-YEAR</div>
+      <div class="big num">2015</div>
+      <div class="rd">
+        <div>FACULTY<b>371</b><em>+58</em></div>
+        <div>COLLABORATIONS<b>358</b><em>+91</em></div>
+        <div>CROSS-COLLEGE<b>25%</b><em>+2pt</em></div>
+        <div>FIRST-TIME PAIRS<b>190</b><em></em></div>
+        <div>CONTINUED FROM 2014<b>96</b><em></em></div>
+        <div>COLLEGE PAIRS LINKED<b>16/45</b><em></em></div>
+      </div>
+      <div class="grow"></div>
+      <div class="spark" id="M-spark"></div>
+      <div class="axis"><span>2006</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+      <div class="keys"><span class="on">▶ PLAY</span><span>1×</span><span class="on">ALL</span><span>PSI</span><span>CFEP</span></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- N: orbit dial -->
+  <div class="mock N" data-m="N">
+    <div class="net" data-net></div>
+    <svg class="dial" id="N-dial" viewBox="0 0 1440 860"></svg>
+    <div class="playpos"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button></div>
+    <div class="tl"><div class="brand"><i>NC STATE</i><span>Research Networks</span></div><div class="year num">2015</div></div>
+    <div class="bl">
+      <div><b class="num">371</b><small>faculty collaborating</small></div>
+      <div><b class="num">358</b><small>collaborations · 25% cross-college</small></div>
+      <div><b class="num">190</b><small>first-time pairs</small></div>
+    </div>
+    <div class="br"><div class="cap">Strongest bridge</div><div class="pair"><i style="background:var(--c1)"></i>Sciences<span style="color:var(--faint)">×</span><i style="background:var(--c2)"></i>Agriculture</div><p>16 shared collaborations</p></div>
+    <div class="corner"><div class="links"><span class="on">Everyone</span><span>PSI</span><span>CFEP</span></div><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- O: composition -->
+  <div class="mock O" data-m="O">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="year num">2015</div>
+      <div class="grp"><h4>Collaborations<b class="num">358</b></h4>
+        <div class="stack"><i style="flex:190;background:var(--text)"></i><i style="flex:96;background:rgba(var(--ink),.45)"></i><i style="flex:72;background:rgba(var(--ink),.2)"></i></div>
+        <div class="lg"><span style="--k:var(--text)"><b>190</b>new</span><span style="--k:rgba(var(--ink),.45)"><b>96</b>continued</span><span style="--k:rgba(var(--ink),.2)"><b>72</b>returning</span></div></div>
+      <div class="grp"><h4>Across colleges<b class="num">25%</b></h4>
+        <div class="stack"><i style="flex:88;background:var(--c0)"></i><i style="flex:270;background:rgba(var(--ink),.14)"></i></div>
+        <div class="lg"><span style="--k:var(--c0)"><b>88</b>cross-college</span><span style="--k:rgba(var(--ink),.14)"><b>270</b>within a college</span></div></div>
+      <div class="grp"><h4>Faculty collaborating<b class="num">371</b></h4>
+        <div class="stack"><i style="flex:118;background:var(--c2)"></i><i style="flex:253;background:rgba(var(--ink),.14)"></i></div>
+        <div class="lg"><span style="--k:var(--c2)"><b>118</b>reached another college</span><span style="--k:rgba(var(--ink),.14)"><b>253</b>stayed inside</span></div></div>
+      <div class="grow"></div>
+      <div class="bars" data-bars></div><div class="ticks"><span>2006</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+      <div class="ctrl"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div><div class="links"><span class="on">All</span><span>PSI</span><span>CFEP</span></div></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- P: spotlight -->
+  <div class="mock P" data-m="P">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="year num">2015</div>
+      <div class="story"><svg class="glyph" viewBox="0 0 40 40"><g stroke="rgb(var(--ink))" stroke-opacity=".4"><line x1="20" y1="20" x2="6" y2="8"/><line x1="20" y1="20" x2="34" y2="9"/><line x1="20" y1="20" x2="36" y2="26"/><line x1="20" y1="20" x2="27" y2="36"/><line x1="20" y1="20" x2="9" y2="34"/><line x1="20" y1="20" x2="3" y2="22"/></g><g style="fill:var(--c1)"><circle cx="6" cy="8" r="3"/><circle cx="34" cy="9" r="3"/><circle cx="36" cy="26" r="3"/><circle cx="27" cy="36" r="3"/><circle cx="9" cy="34" r="3"/><circle cx="3" cy="22" r="3"/></g><circle cx="20" cy="20" r="7" style="fill:var(--c1)" stroke="var(--bg)" stroke-width="2"/></svg>
+        <div><div class="cap">Most connected</div><b>David Muddiman</b><small>Sciences · 8 collaborators</small></div></div>
+      <div class="story"><svg class="glyph" viewBox="0 0 40 40"><path d="M8 20 Q20 6 32 20" fill="none" stroke="rgb(var(--ink))" stroke-opacity=".5" stroke-width="1.5"/><path d="M8 20 Q20 14 32 20" fill="none" stroke="rgb(var(--ink))" stroke-opacity=".5" stroke-width="1.5"/><path d="M8 20 Q20 30 32 20" fill="none" stroke="rgb(var(--ink))" stroke-opacity=".5" stroke-width="1.5"/><circle cx="8" cy="20" r="6" style="fill:var(--c1)"/><circle cx="32" cy="20" r="6" style="fill:var(--c2)"/></svg>
+        <div><div class="cap">Strongest bridge</div><b>Sciences × Agriculture</b><small>16 shared collaborations</small></div></div>
+      <div class="story"><svg class="glyph" viewBox="0 0 40 40"><line x1="10" y1="26" x2="30" y2="14" stroke="rgb(var(--ink))" stroke-width="1.5" stroke-dasharray="3 3"/><circle cx="10" cy="26" r="6" style="fill:var(--c0)"/><circle cx="30" cy="14" r="6" style="fill:var(--c4)"/><path d="M30 2v5M33.5 3.5l-2 3.5M26.5 3.5l2 3.5" stroke="rgb(var(--ink))" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <div><div class="cap">New this year</div><b>190 first-time pairs</b><small>53% of this year's collaborations</small></div></div>
+      <div class="grow"></div>
+      <div class="ctrl"><button class="play sm"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="dots" data-dots></div><span style="font-size:12px;color:var(--muted)">1×</span></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><div class="links"><span class="on">Everyone</span><span>PSI</span><span>CFEP</span></div><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- Q: O + stacked timeline -->
+  <div class="mock O Q" data-m="Q">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="year num">2015</div>
+      <div class="grp"><h4>Collaborations<b class="num">358</b></h4>
+        <div class="stack"><i class="k1" style="flex:190"></i><i class="k2" style="flex:96"></i><i class="k3" style="flex:72"></i></div>
+        <div class="lg"><span class="k1"><b>190</b>new</span><span class="k2"><b>96</b>continued</span><span class="k3"><b>72</b>returning</span></div></div>
+      <div class="grp"><h4>Across colleges<b class="num">25%</b></h4>
+        <div class="stack"><i class="k1" style="flex:88"></i><i class="k3" style="flex:270"></i></div>
+        <div class="lg"><span class="k1"><b>88</b>cross-college</span><span class="k3"><b>270</b>within a college</span></div></div>
+      <div class="grp"><h4>Faculty collaborating<b class="num">371</b></h4>
+        <div class="stack"><i class="k1" style="flex:118"></i><i class="k3" style="flex:253"></i></div>
+        <div class="lg"><span class="k1"><b>118</b>reached another college</span><span class="k3"><b>253</b>stayed inside</span></div></div>
+      <div class="grow"></div>
+      <div class="sbars" id="Q-bars"></div><div class="ticks" style="margin-top:6px"><span>2006</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+      <div class="ctrl"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div><div class="links"><span class="on">All</span><span>PSI</span><span>CFEP</span></div></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- R: direct labels -->
+  <div class="mock O R" data-m="R">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="year num">2015</div>
+      <div class="grp"><h4>Collaborations<b class="num">358</b></h4>
+        <div class="stack"><i class="k1" style="flex:190">190 new</i><i class="k2" style="flex:96">96 continued</i><i class="k3" style="flex:72">72 back</i></div></div>
+      <div class="grp"><h4>Across colleges<b class="num">25%</b></h4>
+        <div class="stack"><i class="k1" style="flex:88">88 across</i><i class="k3" style="flex:270">270 within a college</i></div></div>
+      <div class="grp"><h4>Faculty collaborating<b class="num">371</b></h4>
+        <div class="stack"><i class="k1" style="flex:118">118 reached out</i><i class="k3" style="flex:253">253 stayed inside</i></div></div>
+      <div class="grow"></div>
+      <div class="bars" data-bars></div><div class="ticks"><span>2006</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+      <div class="ctrl"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div><div class="links"><span class="on">All</span><span>PSI</span><span>CFEP</span></div></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- S: percent-first -->
+  <div class="mock O S" data-m="S">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="year num">2015</div>
+      <div class="pct"><b class="num">53%</b><span>of collaborations were new</span>
+        <div class="thin"><i class="k1" style="flex:190"></i><i class="k2" style="flex:96"></i><i class="k3" style="flex:72"></i></div><small>190 new · 96 continued · 72 returning · 358 total</small></div>
+      <div class="pct"><b class="num">25%</b><span>crossed a college line</span>
+        <div class="thin"><i class="k1" style="flex:88"></i><i class="k3" style="flex:270"></i></div><small>88 of 358 collaborations</small></div>
+      <div class="pct"><b class="num">32%</b><span>of faculty reached out</span>
+        <div class="thin"><i class="k1" style="flex:118"></i><i class="k3" style="flex:253"></i></div><small>118 of 371 faculty worked with another college</small></div>
+      <div class="grow"></div>
+      <div class="trendcap"><span>Cross-college share, 2006 – 2025</span><b class="num">25%</b></div>
+      <svg class="trend" id="S-trend" viewBox="0 0 340 86" preserveAspectRatio="none"></svg>
+      <div class="ctrl"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div><div class="links"><span class="on">All</span><span>PSI</span><span>CFEP</span></div></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- T: O refined -->
+  <div class="mock O T" data-m="T">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="year num">2015</div>
+      <div class="grp"><h4><span>Collaborations<em>+91 vs 2014</em></span><b class="num">358</b></h4>
+        <div class="stack"><i class="k1" style="flex:190"></i><i class="k2" style="flex:96"></i><i class="k3" style="flex:72"></i></div>
+        <div class="lg"><span class="k1">New<em>53%</em></span><span class="k2">Continued<em>27%</em></span><span class="k3">Returning<em>20%</em></span></div></div>
+      <div class="grp"><h4><span>Across colleges<em>+2 pts</em></span><b class="num">25%</b></h4>
+        <div class="stack"><i class="k1" style="flex:88"></i><i class="k3" style="flex:270"></i></div>
+        <div class="lg"><span class="k1">Cross-college<em>88</em></span><span class="k3">Within a college<em>270</em></span></div></div>
+      <div class="grp"><h4><span>Faculty collaborating<em>+58</em></span><b class="num">371</b></h4>
+        <div class="stack"><i class="k1" style="flex:118"></i><i class="k3" style="flex:253"></i></div>
+        <div class="lg"><span class="k1">Reached another college<em>118</em></span><span class="k3">Stayed inside<em>253</em></span></div></div>
+      <div class="grow"></div>
+      <div class="xcap"><span>Collaborations per year · <b style="color:var(--text)">cross-college</b> highlighted</span></div>
+      <div class="xbars" id="T-bars"></div><div class="ticks" style="margin-top:6px"><span>2006</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+      <div class="ctrl"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div><div class="links"><span class="on">All</span><span>PSI</span><span>CFEP</span></div></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- C: editorial (from round 1) -->
+  <div class="mock C" data-m="C">
+    <div class="col">
+      <div class="brand"><i>NC STATE</i><span>Research Networks</span></div>
+      <div class="year num">2015</div>
+      <p class="lede"><b>371</b> faculty co-authored <b>358</b> collaborations. <b>25%</b> crossed college lines, and <b>190</b> pairs worked together for the first time.</p>
+      <div class="ctrl"><button class="play"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="seg"><span>0.5×</span><span class="on">1×</span><span>2×</span></div><small>Space to play</small></div>
+      <div class="grow"></div>
+      <div class="bars" data-bars></div><div class="ticks"><span>2006</span><span>2010</span><span>2015</span><span>2020</span><span>2025</span></div>
+      <div class="links"><span class="on">Everyone</span><span>PSI only</span><span>CFEP only</span></div>
+    </div>
+    <div class="net" data-net></div>
+    <div class="corner"><button class="iconbtn"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6"/></svg></button></div>
+  </div>
+
+  <!-- D: timeline rail (from round 1) -->
+  <div class="mock D" data-m="D">
+    <nav class="rail"><span class="logo">NC STATE</span><button class="play" style="width:40px;height:40px"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg></button><div class="track" id="D-track"></div><span style="font-size:11px;color:var(--muted)">1×</span></nav>
+    <div class="net" data-net></div>
+    <div class="head"><div class="year num">2015</div><div class="st"><b class="num">371</b>faculty</div><div class="st"><b class="num">358</b>collaborations</div><div class="st"><b class="num">25%</b>cross-college</div><div class="st"><b class="num">190</b>first-time</div></div>
+  </div>
+
+</div></div>
+
+<script>
+const NOTES = {
+  E: "<b>E · Cinematic.</b> Treats the animation like a film. The network fills the screen; the year and a one-line caption sit bottom-left like a subtitle; a video-style scrubber runs the full width along the bottom, with a faint collaborations histogram riding just above it. Filters are three words in the top-right corner.",
+  F: "<b>F · Year wheel.</b> The years are stacked like a rotating drum: the current year is huge and the ones before and after shrink and fade away above and below it. As it plays, the wheel rolls up a notch each year. Very distinctive, and the year is impossible to miss.",
+  G: "<b>G · Data poster.</b> The numbers are the hero: three big figures stacked down the left, each with its change from the previous year in green. A sparkline at the bottom shows collaborations over all 20 years, with a dot on the current year. Best if Aditi wants people to read the stats.",
+  H: "<b>H · Serif editorial.</b> Styled like a magazine feature: a ruled kicker line, the year in a tall serif, and the sentence in serif italic emphasis. The timeline is just the 20 years written out as text (click one), and Play is a word, not a button. Calm and premium.",
+  I: "<b>I · Watermark.</b> The year is set enormous and outlined behind the network, so it's always there without taking space. The four numbers stack quietly top-left, filters top-right, and a small floating dock at the bottom holds play and the years as dots. The most minimal and the network gets nearly everything.",
+  C: "<b>C · Editorial</b> (round 1, for comparison).",
+  D: "<b>D · Timeline rail</b> (round 1, for comparison)."
+};
+const COUNTS = [97,130,147,163,179,209,224,309,267,358,445,428,518,519,634,829,824,832,1028,947], YEAR = 2015, IX = YEAR - 2006, MX = Math.max(...COUNTS);
+const yrs = COUNTS.map((_, i) => 2006 + i), cls = i => i === IX ? "on" : i < IX ? "past" : "";
+
+document.querySelectorAll("[data-bars]").forEach(el => el.innerHTML = COUNTS.map((n, i) => `<i class="${cls(i)}" style="height:${(n / MX * 100).toFixed(0)}%"></i>`).join(""));
+document.querySelectorAll("[data-yrs]").forEach(el => el.innerHTML = yrs.map((y, i) => `<span class="num ${cls(i)}">${y === YEAR || y % 5 === 0 || y === 2006 || y === 2025 ? y : ""}</span>`).join(""));
+document.querySelectorAll("[data-textyrs]").forEach(el => el.innerHTML = yrs.map((y, i) => `<span class="${cls(i)}">${y}</span>`).join(""));
+document.querySelectorAll("[data-dot]").forEach(el => el.innerHTML = yrs.map((y, i) => `<span class="${cls(i)}">${y === YEAR ? y : "’" + String(y).slice(2)}</span>`).join(""));
+{ const pts = COUNTS.map((n, i) => [i / 19 * 322 + 4, 60 - n / MX * 54]), line = pts.map(p => p.join(",")).join(" ");
+  document.getElementById("G-spark").innerHTML = `<polygon class="area" points="4,64 ${line} 326,64"/><polyline points="${line}"/><circle cx="${pts[IX][0]}" cy="${pts[IX][1]}" r="5"/>`; }
+document.getElementById("D-track").innerHTML = `<i class="line"></i><i class="fill" style="height:calc(${IX / 19 * 100}% - 4px)"></i>` +
+  yrs.map((y, i) => { const top = `calc(4px + (100% - 8px) * ${i / 19})`, lab = y === 2006 || y === 2025 || y % 5 === 0 || y === YEAR;
+    return `<i class="tk ${cls(i)}" style="top:${top}"></i>` + (lab ? `<span class="tl num ${y === YEAR ? "on" : ""}" style="top:${top}">${y}</span>` : ""); }).join("");
+
+// a representative network: real 2015 college sizes, packed clusters on a ring, curved cross-college ties
+const COLS = [["Engineering",100],["Sciences",66],["Agriculture & Life Sci.",93],["Humanities & Social Sci.",12],["Veterinary Medicine",44],["Education",6],["Management (Poole)",7],["Natural Resources",32],["Textiles",10],["Design",1]];
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function network(el) {
+  const W = el.clientWidth, H = el.clientHeight, cx = W / 2, cy = H / 2, NS = "http://www.w3.org/2000/svg";
+  seed = 7;
+  const size = COLS.map(([, n]) => Math.sqrt(n) * 9.5 + 8), tot = size.reduce((a, b) => a + b * 2 + 30, 0), R = Math.min(W, H) * .34;
+  let acc = 0; const people = [], centers = [];
+  COLS.forEach(([, n], c) => {
+    const a = -Math.PI / 2 + 2 * Math.PI * (acc + size[c] + 15) / tot - 2 * Math.PI * (size[0] + 15) / tot; acc += size[c] * 2 + 30;
+    const x0 = cx + R * Math.cos(a), y0 = cy + R * Math.sin(a); centers.push([x0, y0, a, size[c]]);
+    for (let k = 0; k < n; k++) { const rr = 9.2 * Math.sqrt(k + .5), t = k * 2.39996; people.push({ c, x: x0 + rr * Math.cos(t), y: y0 + rr * Math.sin(t), r: 2.6 + Math.pow(rnd(), 3) * 7 }); }
+  });
+  const svg = document.createElementNS(NS, "svg"); el.appendChild(svg);
+  const byC = COLS.map((_, c) => people.filter(p => p.c === c)), mk = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); svg.appendChild(e); return e; };
+  people.forEach(p => { if (rnd() < .75) { const m = byC[p.c], q = m[Math.floor(rnd() * m.length)]; if (q !== p && Math.hypot(q.x - p.x, q.y - p.y) < 60) mk("path", { class: "edge", d: `M${p.x},${p.y}L${q.x},${q.y}` }); } });
+  for (let k = 0; k < 90; k++) {
+    const p = people[Math.floor(rnd() * people.length)], q = people[Math.floor(rnd() * people.length)]; if (p.c === q.c) continue;
+    const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+    mk("path", { class: "edge", d: `M${p.x},${p.y}Q${mx + (cx - mx) * .6},${my + (cy - my) * .6} ${q.x},${q.y}` });
+  }
+  people.forEach(p => mk("circle", { class: "node", cx: p.x, cy: p.y, r: p.r, style: `fill:var(--c${p.c})` }));
+  centers.forEach(([x, y, a, s], c) => { const t = mk("text", { class: "lbl", x: x + Math.cos(a) * (s + 22), y: y + Math.sin(a) * (s + 22) + 4 }); t.textContent = COLS[c][0]; });
+}
+
+Object.assign(NOTES, {
+  J: "<b>J · Pair matrix.</b> A small grid of every college against every other: a filled square means those two colleges co-authored that year, darker means more ties, and the strongest pair is outlined. As it plays you'd watch the grid fill in. New stat: <b>college pairs linked (16 of 45)</b>, a direct measure of how connected the campus is.",
+  K: "<b>K · Swiss grid.</b> Bold and graphic: the year stacked enormous top-left with an NC State red rule, and a full-width band along the bottom that is both the timeline (red cell = current year, play on the left) and five big figures split by hairlines. Adds <b>college pairs linked</b> as a fifth figure.",
+  L: "<b>L · Headline.</b> Every year gets a written headline generated from the data (here, the strongest college pair), with four supporting facts underneath. Reads like a news story; great for presenting. Adds <b>strongest pair</b> and <b>faculty who reached another college (118)</b>.",
+  M: "<b>M · Instrument.</b> A lab-instrument readout in monospace: labels with dotted leaders, values with changes from last year, a dot-matrix bar timeline (current year in red), and controls as keycaps. Fits a research/data audience. Adds <b>continued from last year (96)</b> and <b>college pairs linked</b>.",
+  N: "<b>N · Orbit dial.</b> The 20 years run around the network like a clock face, with the elapsed part of the ring filled in and play in the gap at the bottom. Stats sit in the corners, including a <b>strongest bridge</b> callout. The most unusual, and the network stays dead centre.",
+  O: "<b>O · Composition.</b> Instead of single numbers, three bars show what the year is made of: collaborations split into <b>new / continued / returning</b>, ties split into cross-college vs within, and faculty split into those who <b>reached another college</b> vs stayed inside.",
+  P: "<b>P · Spotlight.</b> Three short stories per year, each with a small icon: the <b>most connected person</b>, the <b>strongest college bridge</b>, and how many pairs were <b>new</b>. More human and narrative; the timeline is a quiet row of dots."
+});
+// 2015 cross-college ties between each pair of colleges (same order as COLS)
+const MX15 = [[0,9,7,1,1,0,0,2,6,0],[9,0,16,1,14,0,0,13,0,0],[7,16,0,0,3,3,0,6,0,0],[1,1,0,0,0,3,0,0,0,0],[1,14,3,0,0,0,0,0,0,0],[0,0,3,3,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0],[2,13,6,0,0,0,0,0,1,2],[6,0,0,0,0,0,0,1,0,0],[0,0,0,0,0,0,0,2,0,0]];
+{ let h = "";
+  for (let r = 0; r < 10; r++) { h += `<b style="background:var(--c${r})"></b>`;
+    for (let c = 0; c < 10; c++) { const v = MX15[r][c];
+      h += c >= r ? `<i class="no"></i>` : v ? `<i class="v ${v === 16 ? "top" : ""}" style="--a:${(.18 + v / 16 * .72).toFixed(2)}" title="${COLS[r][0]} × ${COLS[c][0]}: ${v}"></i>` : `<i></i>`; } }
+  h += `<span></span>` + COLS.map((_, c) => `<b style="background:var(--c${c})"></b>`).join("");
+  document.getElementById("J-mx").innerHTML = h; }
+document.getElementById("K-cells").innerHTML = `<span class="pl"><svg viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z"/></svg>Play 1×</span>` + yrs.map((y, i) => `<span class="${cls(i)}">${"’" + String(y).slice(2)}</span>`).join("");
+document.querySelectorAll("[data-dots]").forEach(el => el.innerHTML = yrs.map((_, i) => `<i class="${cls(i)}"></i>`).join(""));
+document.getElementById("M-spark").innerHTML = COUNTS.map((n, i) => `<i class="${i === IX ? "on" : i > IX ? "fut" : ""}" style="height:${(n / MX * 100).toFixed(0)}%"></i>`).join("");
+{ const cx = 720, cy = 430, R = 372, a0 = 120, span = 300, pt = (deg, r) => [cx + r * Math.cos(deg * Math.PI / 180), cy + r * Math.sin(deg * Math.PI / 180)];
+  const arc = (d0, d1) => { const [x0, y0] = pt(d0, R), [x1, y1] = pt(d1, R); return `M${x0},${y0}A${R},${R} 0 ${d1 - d0 > 180 ? 1 : 0} 1 ${x1},${y1}`; };
+  let h = `<path class="trk" d="${arc(a0, a0 + span)}"/><path class="prog" d="${arc(a0, a0 + span * IX / 19)}"/>`;
+  yrs.forEach((y, i) => { const d = a0 + span * i / 19, [x, yy] = pt(d, R), [tx, ty] = pt(d, R + (i === IX ? 30 : 22));
+    h += `<circle class="dot ${cls(i)}" cx="${x}" cy="${yy}" r="${i === IX ? 8 : 4}"/><text class="${cls(i)}" x="${tx}" y="${ty}">${i === IX ? y : "’" + String(y).slice(2)}</text>`; });
+  document.getElementById("N-dial").innerHTML = h; }
+
+Object.assign(NOTES, {
+  O: "<b>O · Composition</b> (round 3, the one you liked). Three bars show what each year is made of.",
+  Q: "<b>Q · O + stacked timeline.</b> Same left column as O, but the timeline at the bottom is also a composition: every year's bar is split into new / continued / returning, so you can see the mix change over 20 years, not just the total. The current year is solid, the rest dimmed. Bars use greys instead of blue/green so they never get confused with college colours.",
+  R: "<b>R · Direct labels.</b> The bars are thicker and the numbers sit inside them, so there are no legends to read. Fewer elements, quicker to scan, and it still reads at a glance during playback.",
+  S: "<b>S · Percent-first.</b> Each group leads with one big percentage and a plain-English label (\"53% of collaborations were new\"), with a thin bar and the raw counts underneath. The timeline becomes a line chart of the <b>cross-college share</b> over all 20 years, the trend the project is really about.",
+  T: "<b>T · O refined.</b> O tidied up: each heading shows its change from last year, the legends show percentages, and the timeline bars are split so the <b>cross-college part</b> of every year stands out. The most information without adding anything new to the layout."
+});
+// per year 2006 – 2025: [collaborations, new, continued, returning, cross-college, faculty, faculty who reached another college]
+const COMP = [[97,97,0,0,16,130,28],[130,92,38,0,27,152,42],[147,78,51,18,33,191,54],[163,90,58,15,19,203,32],[179,92,53,34,39,227,62],[209,109,59,41,38,245,55],[224,91,87,46,44,258,69],[309,158,95,56,78,345,112],[267,130,98,39,61,313,83],[358,190,96,72,88,371,118],[445,216,133,96,120,430,150],[428,188,143,97,101,426,134],[518,247,151,120,118,450,138],[519,224,184,111,126,483,148],[634,318,186,130,140,547,161],[829,427,231,171,213,643,240],[824,376,308,140,191,621,209],[832,350,304,178,191,657,217],[1028,464,321,243,270,712,282],[947,427,316,204,244,679,245]];
+const h = (n, max) => (n / max * 100).toFixed(1) + "%";
+document.getElementById("Q-bars").innerHTML = COMP.map((c, i) => `<div class="${i === IX ? "on" : ""}" style="height:${h(c[0], MX)}"><i class="k1" style="flex:${c[1]}"></i><i class="k2" style="flex:${c[2]}"></i><i class="k3" style="flex:${c[3]}"></i></div>`).join("");
+document.getElementById("T-bars").innerHTML = COMP.map((c, i) => `<div class="${i === IX ? "on" : ""}" style="height:${h(c[0], MX)}"><i class="x" style="flex:${c[4]}"></i><i style="flex:${c[0] - c[4]}"></i></div>`).join("");
+{ const pc = COMP.map(c => c[4] / c[0] * 100), lo = 10, hi = 30, x = i => 4 + i / 19 * 332, y = v => 76 - (v - lo) / (hi - lo) * 66;
+  const grid = [10, 20, 30].map(v => `<line class="grid" x1="0" x2="340" y1="${y(v)}" y2="${y(v)}"/><text x="340" y="${y(v) - 3}" text-anchor="end">${v}%</text>`).join("");
+  document.getElementById("S-trend").innerHTML = grid + `<polyline points="${pc.map((v, i) => x(i) + "," + y(v)).join(" ")}"/><circle cx="${x(IX)}" cy="${y(pc[IX])}" r="4.5"/>`; }
+
+const frame = document.getElementById("frame");
+const fitFrame = () => { const s = Math.min(1, (innerWidth - 48) / 1440); frame.style.transform = `scale(${s})`; frame.parentNode.style.height = 860 * s + 40 + "px"; };
+addEventListener("resize", fitFrame); fitFrame();
+function show(m) {
+  document.querySelectorAll(".tab[data-m]").forEach(t => t.classList.toggle("on", t.dataset.m === m));
+  document.querySelectorAll(".mock").forEach(x => x.classList.toggle("on", x.dataset.m === m));
+  const net = document.querySelector(`.mock[data-m="${m}"] [data-net]`); if (!net.firstChild) network(net);   // drawn once it has a size
+  document.getElementById("note").innerHTML = NOTES[m];
+}
+document.querySelectorAll(".tab[data-m]").forEach(t => t.onclick = () => show(t.dataset.m));
+document.getElementById("theme").onclick = () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === "light" ? "dark" : "light"; };
+show("Q");
+</script>
+</body>
+</html>
