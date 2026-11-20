@@ -26,6 +26,7 @@ Run:
 """
 
 import csv
+import hashlib
 import json
 import os
 
@@ -151,12 +152,18 @@ def main():
         print(f"  PSI {start}: {len(psi[start]['n']):,} faculty, {len(psi[start]['e']):,} collaborations")
 
     data = {"colleges": [short for _, short in COLLEGES], "cfep": cfep_clusters, "blocks": blocks, "psi": psi}
+    # fingerprint of the data: the page keys the layouts it saves in the browser by it, so a rebuild with new data
+    # never shows stale positions
+    data["v"] = hashlib.sha1(json.dumps(data, separators=(",", ":")).encode()).hexdigest()[:12]
     with open(TEMPLATE, encoding="utf-8") as f:
         html = f.read()
     if "__DATA__" not in html:
         raise SystemExit(f"{TEMPLATE} has no __DATA__ placeholder")
     with open(OUTPUT, "w", encoding="utf-8") as f:
-        f.write(html.replace("__DATA__", json.dumps(data, separators=(",", ":"))))
+        # embedded as a JSON string, which the browser parses much faster than the same data written as code;
+        # "</" is escaped so a title can never end the script tag early
+        literal = json.dumps(json.dumps(data, separators=(",", ":"))).replace("</", "<\\/")
+        f.write(html.replace("__DATA__", "JSON.parse(" + literal + ")"))
     print(f"Wrote {OUTPUT} ({os.path.getsize(OUTPUT) / 1e6:.2f} MB)")
 
 
